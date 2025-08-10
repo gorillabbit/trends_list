@@ -1,0 +1,28 @@
+name = "npmtrends-presets"
+compatibility_date = "2025-08-01"
+
+# Pages Functions用
+main = "functions/[[path]].ts"
+
+# D1 バインド
+[[d1_databases]]
+binding = "DB"
+database_name = "npmtrends_presets"
+database_id = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+
+# KV（任意：ランキングキャッシュ）
+[[kv_namespaces]]
+binding = "KV"
+id = "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy"
+
+# Turnstile（Site Key）
+[vars]
+TURNSTILE_SITE_KEY = "your_site_key"
+
+# GitHub OAuth
+GITHUB_CLIENT_ID = "your_github_client_id"
+SESSION_SECRET = "your_session_secret"
+
+# シークレットに入れる（wrangler secret put コマンドで設定）
+# TURNSTILE_SECRET_KEY
+# GITHUB_CLIENT_SECRET
