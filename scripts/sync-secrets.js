@@ -1,34 +1,13 @@
 #!/usr/bin/env node
 
-/**
- * Secrets Synchronization Script
- * .envファイルをシングルソースとしてCloudflareなど各プラットフォームのsecretsを同期
- */
-
 import fs from 'fs';
 import { execSync } from 'child_process';
+import path from 'path';
 
-const CONFIG = {
-	envFiles: {
-		local: '.env.local',
-		prod: '.env.prod',
-	},
-	platforms: {
-		cloudflare: {
-			secretKeys: [
-				'GITHUB_CLIENT_SECRET',
-				'TURNSTILE_SECRET_KEY',
-				'SESSION_SECRET',
-			],
-			publicKeys: ['GITHUB_CLIENT_ID', 'TURNSTILE_SITE_KEY'],
-		},
-	},
-};
-
-function loadEnvFile(filePath) {
+export function loadEnvFile(filePath) {
 	if (!fs.existsSync(filePath)) {
 		console.error(`❌ Environment file not found: ${filePath}`);
-		process.exit(1);
+		return null;
 	}
 
 	const envContent = fs.readFileSync(filePath, 'utf8');
@@ -38,8 +17,17 @@ function loadEnvFile(filePath) {
 		const trimmed = line.trim();
 		if (trimmed && !trimmed.startsWith('#')) {
 			const [key, ...valueParts] = trimmed.split('=');
-			if (key && valueParts.length > 0) {
-				envVars[key.trim()] = valueParts.join('=').trim();
+			const value = valueParts.join('=').trim();
+
+			if (key && value) {
+				// Remove surrounding quotes if they exist
+				if (value.startsWith('"') && value.endsWith('"')) {
+					envVars[key.trim()] = value.slice(1, -1);
+				} else if (value.startsWith("'") && value.endsWith("'")) {
+					envVars[key.trim()] = value.slice(1, -1);
+				} else {
+					envVars[key.trim()] = value;
+				}
 			}
 		}
 	});
@@ -47,100 +35,45 @@ function loadEnvFile(filePath) {
 	return envVars;
 }
 
-function syncCloudflareSecrets(envVars) {
-	console.log('🔄 Cloudflareのsecretsを同期中...');
-
-	const { secretKeys, publicKeys } = CONFIG.platforms.cloudflare;
-
-	// Secretsの設定
-	secretKeys.forEach((key) => {
-		if (envVars[key]) {
-			try {
-				console.log(`  🔐 Setting secret: ${key}`);
-				execSync(
-					`echo "${envVars[key]}" | wrangler secret put ${key}`,
-					{
-						stdio: ['pipe', 'inherit', 'inherit'],
-					}
-				);
-				console.log(`  ✅ ${key} set successfully`);
-			} catch (error) {
-				console.error(`  ❌ Failed to set ${key}:`, error.message);
-				process.exit(1);
-			}
-		} else {
-			console.warn(`  ⚠️  Warning: ${key} not found in environment file`);
-		}
-	});
-
-	// Public variablesの確認
-	console.log('\n📋 Public variables (update wrangler.toml manually):');
-	publicKeys.forEach((key) => {
-		if (envVars[key]) {
-			console.log(`  ${key} = "${envVars[key]}"`);
-		} else {
-			console.warn(`  ⚠️  Warning: ${key} not found in environment file`);
-		}
-	});
-}
-
-function validateEnvironment(envVars) {
-	const required = [
-		'GITHUB_CLIENT_ID',
-		'GITHUB_CLIENT_SECRET',
-		'TURNSTILE_SITE_KEY',
-		'TURNSTILE_SECRET_KEY',
-		'SESSION_SECRET',
-	];
-
-	const missing = required.filter((key) => !envVars[key]);
-
-	if (missing.length > 0) {
-		console.error('❌ Missing required environment variables:');
-		missing.forEach((key) => console.error(`  - ${key}`));
-		process.exit(1);
-	}
-
-	console.log('✅ All required environment variables present');
-}
-
 function main() {
-	const args = process.argv.slice(2);
-	const environment = args[0] || 'local';
+	const env = process.argv[2] || 'local';
+	const envFileName = env === 'prod' ? '.env.prod' : '.env.local';
+	const envPath = path.resolve(process.cwd(), envFileName);
 
-	if (!CONFIG.envFiles[environment]) {
-		console.error(
-			'❌ Invalid environment. Available:',
-			Object.keys(CONFIG.envFiles).join(', ')
-		);
-		process.exit(1);
-	}
-
-	const envFile = CONFIG.envFiles[environment];
-
-	console.log(`🔑 Secrets Sync - Environment: ${environment}`);
-	console.log(`📄 Loading: ${envFile}`);
+	console.log(`🔑 Secrets Sync - Environment: ${env}`);
+	console.log(`📄 Loading all variables from: ${envPath}`);
 	console.log('=====================================\n');
 
-	// 環境変数を読み込み
-	const envVars = loadEnvFile(envFile);
+	const envVars = loadEnvFile(envPath);
 
-	// バリデーション
-	validateEnvironment(envVars);
+	if (!envVars || Object.keys(envVars).length === 0) {
+		console.log('No variables found in .env file to sync.');
+		return;
+	}
 
-	// Cloudflareに同期
-	syncCloudflareSecrets(envVars);
+	console.log(
+		'🔄 Synchronizing all found variables to Cloudflare Secrets...'
+	);
 
-	console.log('\n🎉 Secrets synchronization completed!');
-	console.log('\n📋 Next steps:');
-	console.log('1. Update wrangler.toml with public variables shown above');
-	console.log('2. Run: npm run wrangler:deploy');
-	console.log('3. Test your deployed application');
+	for (const key in envVars) {
+		const value = envVars[key];
+		console.log(`  🔐 Syncing secret: ${key}`);
+		try {
+			const command = `npx wrangler secret put ${key} ${
+				env === 'prod' ? '' : '--env development'
+			}`;
+			execSync(command, {
+				input: value,
+				stdio: ['pipe', 'inherit', 'inherit'],
+			});
+			console.log(`  ✅ ${key} synced successfully`);
+		} catch (error) {
+			console.error(`  ❌ Failed to sync ${key}:`, error.message);
+			// Don't exit on first error, try to sync others
+		}
+	}
+
+	console.log('\n🎉 All variables from .env file have been processed.');
 }
 
-// 実行チェック
-if (import.meta.url === `file://${process.argv[1]}`) {
-	main();
-}
-
-export { loadEnvFile, syncCloudflareSecrets, validateEnvironment };
+main();

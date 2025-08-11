@@ -1,12 +1,11 @@
-import { User } from '../types'
-import './Header.css'
+import { SignInButton, SignedIn, SignedOut, UserButton } from '@clerk/clerk-react';
+import './Header.css';
 
 interface HeaderProps {
-  user: User | null
-  onCreateClick: () => void
+  onCreateClick: () => void;
 }
 
-export default function Header({ user, onCreateClick }: HeaderProps) {
+export default function Header({ onCreateClick }: HeaderProps) {
   return (
     <header className="header">
       <div className="header-container">
@@ -15,7 +14,7 @@ export default function Header({ user, onCreateClick }: HeaderProps) {
         </div>
         
         <div className="header-right">
-          {user ? (
+          <SignedIn>
             <div className="user-menu">
               <button 
                 className="create-button"
@@ -23,33 +22,18 @@ export default function Header({ user, onCreateClick }: HeaderProps) {
               >
                 ✨ プリセット作成
               </button>
-              
-              <div className="user-info">
-                <img 
-                  src={user.avatar_url} 
-                  alt={user.name}
-                  className="user-avatar"
-                />
-                <div className="user-details">
-                  <span className="user-name">{user.name}</span>
-                  <div className="user-stats">
-                    <span>{user.stats.presets_count} プリセット</span>
-                    <span>{user.stats.total_likes} いいね</span>
-                  </div>
-                </div>
-              </div>
-              
-              <a href="/auth/logout" className="logout-button">
-                ログアウト
-              </a>
+              <UserButton afterSignOutUrl="/" />
             </div>
-          ) : (
-            <a href="/auth/login" className="login-button">
-              GitHub でログイン
-            </a>
-          )}
+          </SignedIn>
+          <SignedOut>
+            <SignInButton mode="redirect">
+              <button className="login-button">
+                ログイン / 新規登録
+              </button>
+            </SignInButton>
+          </SignedOut>
         </div>
       </div>
     </header>
-  )
+  );
 }

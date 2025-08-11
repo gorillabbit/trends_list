@@ -1,14 +1,3 @@
-export interface User {
-  id: string
-  name: string
-  avatar_url: string
-  created_at: string
-  stats: {
-    presets_count: number
-    total_likes: number
-  }
-}
-
 export interface Preset {
   id: string
   title: string
@@ -19,5 +8,4 @@ export interface Preset {
   created_at: string
   owner_name?: string
   owner_avatar?: string
-  liked?: boolean
 }

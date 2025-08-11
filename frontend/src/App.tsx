@@ -1,90 +1,69 @@
-import { useState, useEffect } from 'react'
-import Header from './components/Header'
-import PresetList from './components/PresetList'
-import CreatePresetForm from './components/CreatePresetForm'
-import { User, Preset } from './types'
-import './App.css'
+import { useState, useEffect } from 'react';
+import Header from './components/Header';
+import PresetList from './components/PresetList';
+import CreatePresetForm from './components/CreatePresetForm';
+import { Preset } from './types';
+import './App.css';
+import { useAuth } from '@clerk/clerk-react';
 
 function App() {
-  const [user, setUser] = useState<User | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [presets, setPresets] = useState<Preset[]>([])
-  const [showCreateForm, setShowCreateForm] = useState(false)
-
-  // ユーザー情報取得
-  useEffect(() => {
-    fetch('/api/me')
-      .then(res => res.json())
-      .then(data => {
-        if (data.authenticated) {
-          setUser(data.user)
-        }
-      })
-      .catch(err => console.error('Failed to fetch user:', err))
-      .finally(() => setLoading(false))
-  }, [])
+  const [presets, setPresets] = useState<Preset[]>([]);
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const { isSignedIn, getToken } = useAuth();
 
   // プリセット一覧取得
   useEffect(() => {
-    fetchPresets()
-  }, [])
+    fetchPresets();
+  }, []);
 
   const fetchPresets = async () => {
     try {
-      const res = await fetch('/api/presets?sort=likes')
-      const data = await res.json()
-      setPresets(data.presets || [])
+      // このAPIは公開されているのでトークンは不要
+      const res = await fetch('/api/presets?sort=likes');
+      const data = await res.json();
+      setPresets(data.presets || []);
     } catch (err) {
-      console.error('Failed to fetch presets:', err)
+      console.error('Failed to fetch presets:', err);
     }
-  }
+  };
 
-  const handlePresetCreated = (newPreset: Preset) => {
-    setPresets(prev => [newPreset, ...prev])
-    setShowCreateForm(false)
-  }
+  const handlePresetCreated = () => {
+    setShowCreateForm(false);
+    fetchPresets(); // 作成後にリストを再取得して更新
+  };
 
   const handleLike = async (presetId: string) => {
-    if (!user) {
-      alert('いいねするにはログインが必要です')
-      return
+    if (!isSignedIn) {
+      alert('いいねするにはログインが必要です');
+      return;
     }
 
     try {
+      const token = await getToken();
       const res = await fetch(`/api/presets/${presetId}/like`, {
         method: 'POST',
-      })
-      const data = await res.json()
+        headers: {
+          // バックエンドAPIに認証トークンを渡す
+          'Authorization': `Bearer ${token}`,
+        },
+      });
       
       if (res.ok) {
-        // プリセット一覧を更新
-        setPresets(prev => prev.map(preset => 
-          preset.id === presetId 
-            ? { ...preset, likes_count: data.likes_count, liked: data.liked }
-            : preset
-        ))
+        fetchPresets(); // いいね成功後にリストを再取得してUIを更新
       } else {
-        alert(data.error || 'いいねに失敗しました')
+        const data = await res.json();
+        alert(data.error || 'いいねに失敗しました');
       }
     } catch (err) {
-      console.error('Failed to like preset:', err)
-      alert('いいねに失敗しました')
+      console.error('Failed to like preset:', err);
+      alert('いいねに失敗しました');
     }
-  }
-
-  if (loading) {
-    return (
-      <div className="container">
-        <div className="loading">読み込み中...</div>
-      </div>
-    )
-  }
+  };
 
   return (
     <div className="app">
       <Header 
-        user={user} 
-        onCreateClick={() => setShowCreateForm(!showCreateForm)}
+        onCreateClick={() => setShowCreateForm(true)}
       />
       
       <main className="container">
@@ -93,7 +72,7 @@ function App() {
           <p>お気に入りのNPMパッケージの組み合わせを保存・共有しよう</p>
         </div>
 
-        {showCreateForm && user && (
+        {isSignedIn && showCreateForm && (
           <CreatePresetForm 
             onPresetCreated={handlePresetCreated}
             onCancel={() => setShowCreateForm(false)}
@@ -102,12 +81,11 @@ function App() {
 
         <PresetList 
           presets={presets}
-          user={user}
           onLike={handleLike}
         />
       </main>
     </div>
-  )
+  );
 }
 
-export default App
+export default App;

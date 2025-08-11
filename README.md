@@ -7,19 +7,18 @@ NPMパッケージのトレンド比較プリセットを作成・共有・い�
 - **プリセット作成**: お気に入りのNPMパッケージの組み合わせを保存
 - **トレンド表示**: npmtrendsへの直接リンクで比較グラフを表示
 - **いいね機能**: 他のユーザーのプリセットにいいねを付ける
-- **認証システム**: GitHub OAuthでログイン
+- **認証システム**: Clerk (OAuth, Email/Passwordなど) でログイン
 - **スパム防止**: Cloudflare Turnstileによる保護
 - **レスポンシブUI**: モバイル・デスクトップ対応
 
 ## 🏗️ アーキテクチャ
 
 - **フロントエンド**: React + TypeScript + Vite
-- **API**: Cloudflare Workers (Honoフレームワーク)
-- **認証**: GitHub OAuth (統合済み)
+- **API**: Cloudflare Workers (Honoフレームワーク, **単一Workerに集約**)
+- **認証**: Clerk (認証サービス)
 - **データベース**: Cloudflare D1 (SQLite)
 - **キャッシュ**: Cloudflare Workers KV
 - **スパム防止**: Cloudflare Turnstile
-- **静的配信**: Workers Assets
 
 ## 🚀 ローカル開発
 
@@ -30,45 +29,43 @@ NPMパッケージのトレンド比較プリセットを作成・共有・い�
 
 ### セットアップ
 
-1. **依存関係のインストール**
-```bash
-npm install
-```
+1.  **依存関係のインストール**
+    ```bash
+    npm install
+    ```
 
-2. **環境変数の設定**
+2.  **環境変数の設定**
 
-**自動セットアップ（推奨）：**
-```bash
-# 開発環境用環境変数設定
-npm run setup:dev
+    `.env.local` ファイルを作成し、ClerkとTurnstileのキーを設定します。
+    ```env
+    # Cloudflare Turnstile設定
+    TURNSTILE_SITE_KEY=your_turnstile_site_key
+    TURNSTILE_SECRET_KEY=your_turnstile_secret_key
 
-# または直接実行
-./setup-dev-env.sh
-```
+    # Clerk Authentication
+    # VITE_CLERK_PUBLISHABLE_KEY はフロントエンド用、CLERK_PUBLISHABLE_KEYはwrangler.toml用（同じ値でOK）
+    VITE_CLERK_PUBLISHABLE_KEY=your_clerk_publishable_key
+    CLERK_PUBLISHABLE_KEY=your_clerk_publishable_key
+    CLERK_SECRET_KEY=your_clerk_secret_key
+    ```
+    *   `your_clerk_publishable_key`: Clerkダッシュボードで取得した公開可能キー
+    *   `your_clerk_secret_key`: Clerkダッシュボードで取得した秘密キー
+    *   `your_turnstile_site_key`: Cloudflare Turnstileで取得したサイトキー
+    *   `your_turnstile_secret_key`: Cloudflare Turnstileで取得した秘密キー
 
-**手動設定：**
-`.env.local` ファイルを作成:
-```env
-SESSION_SECRET=your_generated_session_secret
-GITHUB_CLIENT_ID=your_github_client_id
-GITHUB_CLIENT_SECRET=your_github_client_secret
-TURNSTILE_SITE_KEY=1x00000000000000000000AA
-TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000000000
-```
+3.  **開発サーバー起動**
+    ```bash
+    # Wrangler開発サーバーとフロントエンドを同時起動
+    npm run dev:full
 
-3. **開発サーバー起動**
-```bash
-# モックAPIとフロントエンドを同時起動
-npm run dev:full
+    # または別々に起動
+    npm run wrangler:dev    # ポート8787
+    npm run dev             # ポート3000
+    ```
 
-# または別々に起動
-npm run mock-api    # ポート8788
-npm run dev         # ポート3000
-```
-
-4. **アクセス**
-- フロントエンド: http://localhost:3000
-- モックAPI: http://localhost:8788
+4.  **アクセス**
+    -   フロントエンド: http://localhost:3000
+    -   API: http://localhost:8787 (プロキシ経由)
 
 ### 開発用コマンド
 
@@ -93,13 +90,13 @@ npm run preview
 
 ### 1. Cloudflareアカウント設定
 
-1. [Cloudflare](https://cloudflare.com)アカウント作成
-2. API トークン取得
-3. `wrangler` CLI認証
+1.  [Cloudflare](https://cloudflare.com)アカウント作成
+2.  API トークン取得
+3.  `wrangler` CLI認証
 
-```bash
-npx wrangler auth login
-```
+    ```bash
+    npx wrangler auth login
+    ```
 
 ### 2. D1データベース作成
 
@@ -112,10 +109,11 @@ npm run db:migrate
 ```
 
 作成されたデータベースIDを `wrangler.toml` に設定:
+
 ```toml
 [[d1_databases]]
 binding = "DB"
-database_name = "npmtrends_presets"
+database_name = "trends_list"
 database_id = "your-database-id-here"
 ```
 
@@ -126,6 +124,7 @@ npx wrangler kv:namespace create KV
 ```
 
 KV IDを `wrangler.toml` に設定:
+
 ```toml
 [[kv_namespaces]]
 binding = "KV"
@@ -134,53 +133,30 @@ id = "your-kv-id-here"
 
 ### 4. シークレット設定
 
-**自動セットアップスクリプト使用（推奨）：**
-```bash
-# 本番環境用シークレット設定
-npm run setup:secrets
+`.env.prod` ファイルに本番環境用のClerkとTurnstileのキーを設定した後、以下のスクリプトでCloudflare Secretsに同期します。
 
-# または直接実行
-./setup-secrets.sh        # Linux/Mac
-setup-secrets.bat          # Windows
+```bash
+# 本番環境用シークレットを同期
+npm run deploy prod
 ```
 
-**手動設定：**
-```bash
-# GitHub OAuth設定
-npx wrangler secret put GITHUB_CLIENT_SECRET
+### 5. Clerkアプリケーション設定
 
-# Turnstile設定
-npx wrangler secret put TURNSTILE_SECRET_KEY
-
-# セッション暗号化キー
-npx wrangler secret put SESSION_SECRET
-```
-
-### 5. GitHub OAuth App作成
-
-1. [GitHub Developer Settings](https://github.com/settings/developers)
-2. New OAuth App作成
-3. Authorization callback URL: `https://your-domain.pages.dev/auth/callback`
-4. Client IDを `wrangler.toml` の `GITHUB_CLIENT_ID` に設定
+1.  [Clerkダッシュボード](https://clerk.com/dashboard)でアプリケーションを作成
+2.  公開可能キー (`CLERK_PUBLISHABLE_KEY`) と秘密キー (`CLERK_SECRET_KEY`) を取得
+3.  認証方法（OAuthプロバイダー、Email/Passwordなど）を設定
 
 ### 6. Turnstile設定
 
-1. [Cloudflare Dashboard](https://dash.cloudflare.com)
-2. Turnstile タブからサイト作成
-3. Site Keyを `wrangler.toml` の `TURNSTILE_SITE_KEY` に設定
-4. Secret Keyを環境変数に設定
+1.  [Cloudflare Dashboard](https://dash.cloudflare.com)
+2.  Turnstile タブからサイトを作成
+3.  サイトキーを `wrangler.toml` の `TURNSTILE_SITE_KEY` に設定
 
 ### 7. デプロイ
 
 ```bash
-# ビルド
-npm run build
-
-# Workers デプロイ
-npm run wrangler:deploy
-
-# または手動デプロイ
-npx wrangler deploy
+# 統合デプロイ（ビルド、シークレット同期、DB初期化チェック、デプロイ、テスト）
+npm run deploy
 ```
 
 ### 8. ローカル開発サーバー（オプション）
@@ -193,20 +169,24 @@ npm run wrangler:dev
 ## 📁 プロジェクト構造
 
 ```
-├── frontend/               # React フロントエンド
+├── frontend/               # React フロントエンド (Vite)
 │   ├── src/
 │   │   ├── components/     # Reactコンポーネント
 │   │   ├── types.ts        # TypeScript型定義
 │   │   └── ...
 │   └── index.html
-├── src/                    # Cloudflare Workers (Hono)
+├── src/                    # Cloudflare Workers (Hono, メインWorkerに集約)
 │   ├── index.ts            # Worker メインファイル
 │   └── routes/
-│       ├── api.ts          # API ルート (プリセット, いいね, Turnstile)
-│       └── auth.ts         # 認証ルート (GitHub OAuth)
+│       └── api.ts          # API ルート (プリセット, いいね, Turnstile)
+├── scripts/                # デプロイ・環境設定スクリプト
+│   ├── deploy.js           # 統合デプロイスクリプト
+│   └── sync-secrets.js     # .envからsecretsを同期するスクリプト
 ├── schema.sql              # D1スキーマ
 ├── wrangler.toml           # Cloudflare設定
-├── tsconfig.worker.json    # Worker TypeScript設定
+├── tsconfig.json           # TypeScript設定 (フロントエンド)
+├── tsconfig.node.json      # TypeScript設定 (Node.js用)
+├── tsconfig.worker.json    # TypeScript設定 (Worker用)
 ├── package.json
 └── README.md
 ```
@@ -238,29 +218,29 @@ id = "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy"
 
 [vars]
 TURNSTILE_SITE_KEY = "your_site_key"
-GITHUB_CLIENT_ID = "your_github_client_id"
-SESSION_SECRET = "your_session_secret"
+CLERK_PUBLISHABLE_KEY = "your_clerk_publishable_key"
 ```
 
 ### 環境変数（Secrets）
 
-- `TURNSTILE_SECRET_KEY`: Turnstile秘密キー
-- `GITHUB_CLIENT_SECRET`: GitHub OAuth秘密キー
-- `SESSION_SECRET`: JWT署名用秘密キー
+-   `TURNSTILE_SECRET_KEY`: Turnstile秘密キー
+-   `CLERK_SECRET_KEY`: Clerk秘密キー
 
 ## 🐛 トラブルシューティング
 
 ### ローカル開発時のエラー
 
-1. **ポート衝突**: 3000, 8788ポートが使用中の場合は別のポートを使用
-2. **API接続エラー**: モックAPIサーバーが起動しているか確認
-3. **CORS エラー**: vite.config.tsのプロキシ設定を確認
+1.  **ポート衝突**: 3000, 8787ポートが使用中の場合は別のポートを使用
+2.  **API接続エラー**: Wrangler開発サーバーが起動しているか確認
+3.  **CORS エラー**: `vite.config.ts`のプロキシ設定を確認
+4.  **Clerkキー未設定**: `.env.local`に`VITE_CLERK_PUBLISHABLE_KEY`が正しく設定されているか確認
 
 ### デプロイ時のエラー
 
-1. **認証エラー**: `wrangler auth login` で再認証
-2. **D1接続エラー**: データベースIDが正しく設定されているか確認
-3. **KV接続エラー**: KV IDが正しく設定されているか確認
+1.  **認証エラー**: `npx wrangler auth login` で再認証
+2.  **D1接続エラー**: データベースIDが正しく設定されているか確認
+3.  **KV接続エラー**: KV IDが正しく設定されているか確認
+4.  **Clerkキー未設定**: `npm run deploy prod` でシークレットが正しく同期されているか確認
 
 ## 📄 ライセンス
 
@@ -268,11 +248,11 @@ MIT License
 
 ## 🤝 コントリビューション
 
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+1.  Fork the repository
+2.  Create your feature branch (`git checkout -b feature/amazing-feature`)
+3.  Commit your changes (`git commit -m 'Add some amazing feature'`)
+4.  Push to the branch (`git push origin feature/amazing-feature`)
+5.  Open a Pull Request
 
 ## 📞 サポート
 

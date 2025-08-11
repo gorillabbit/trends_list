@@ -20,7 +20,17 @@ type Variables = {
 export const apiRoutes = new Hono<{ Bindings: Bindings, Variables: Variables }>()
 
 // Add the Clerk middleware to all API routes
-apiRoutes.use('*', clerkMiddleware())
+apiRoutes.use('*', async (c, next) => {
+  console.log('CLERK_PUBLISHABLE_KEY:', c.env.CLERK_PUBLISHABLE_KEY)
+  console.log('CLERK_SECRET_KEY:', c.env.CLERK_SECRET_KEY)
+  console.log('Type of publishableKey:', typeof c.env.CLERK_PUBLISHABLE_KEY)
+  console.log('Type of secretKey:', typeof c.env.CLERK_SECRET_KEY)
+  
+  return clerkMiddleware({
+    publishableKey: c.env.CLERK_PUBLISHABLE_KEY,
+    secretKey: c.env.CLERK_SECRET_KEY,
+  })(c, next)
+})
 
 // Helper functions
 function slugify(text: string): string {
@@ -140,6 +150,15 @@ apiRoutes.post('/presets', async (c) => {
 
     const npmtrendsUrl = `https://npmtrends.com/${pkgs.join('-vs-')}`
 
+    // Ensure user exists in users table
+    const existingUser = await c.env.DB.prepare('SELECT id FROM users WHERE id = ?').bind(auth.userId).first()
+    if (!existingUser) {
+      await c.env.DB.prepare(`
+        INSERT INTO users (id, name, avatar_url)
+        VALUES (?, ?, ?)
+      `).bind(auth.userId, null, null).run()
+    }
+
     // Use auth.userId as the owner_id
     await c.env.DB.prepare(`
       INSERT INTO presets (id, title, packages, npmtrends_url, owner_id)
@@ -179,6 +198,15 @@ apiRoutes.post('/presets/:slug/like', async (c) => {
     const preset = await c.env.DB.prepare('SELECT id FROM presets WHERE id = ?').bind(slug).first()
     if (!preset) {
       return c.json({ error: 'プリセットが見つかりません' }, 404)
+    }
+
+    // Ensure user exists in users table
+    const existingUser = await c.env.DB.prepare('SELECT id FROM users WHERE id = ?').bind(auth.userId).first()
+    if (!existingUser) {
+      await c.env.DB.prepare(`
+        INSERT INTO users (id, name, avatar_url)
+        VALUES (?, ?, ?)
+      `).bind(auth.userId, null, null).run()
     }
 
     const liked = await c.env.DB.prepare('SELECT 1 FROM likes WHERE user_id=? AND preset_id=?').bind(auth.userId, slug).first()

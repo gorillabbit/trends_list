@@ -9,21 +9,14 @@
     "build:frontend": "vite build",
     "build:worker": "tsc --project tsconfig.worker.json --noEmit && echo 'Worker TypeScript check complete'",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-    "preview": "vite preview",
-    "mock-api": "node mock-server.js",
     "dev:full": "concurrently \"npm run wrangler:dev\" \"npm run dev\"",
     "wrangler:dev": "npm run build:frontend && wrangler dev",
-    "wrangler:deploy": "npm run build && wrangler deploy",
     "db:create": "wrangler d1 create trends_list",
     "db:migrate": "wrangler d1 execute trends_list --file=./schema.sql --local",
-    "setup:dev": "./setup-dev-env.sh",
-    "setup:all": "npm run setup:dev && echo '\\n次に本番用の.env.prodファイルを作成し、npm run deploy:prod でCloudflareにデプロイしてください'",
-    "sync:secrets": "node scripts/sync-secrets.js",
-    "sync:secrets:prod": "node scripts/sync-secrets.js prod",
-    "deploy": "node scripts/deploy.js",
-    "deploy:prod": "node scripts/deploy.js prod"
+    "deploy": "node scripts/deploy.js"
   },
   "dependencies": {
+    "@clerk/clerk-react": "^5.40.0",
     "@hono/clerk-auth": "^3.0.3",
     "@hono/node-server": "^1.18.1",
     "hono": "^4.9.0",

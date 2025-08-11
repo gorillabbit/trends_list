@@ -1,13 +1,12 @@
-import { User, Preset } from '../types'
+import { Preset } from '../types'
 import './PresetCard.css'
 
 interface PresetCardProps {
   preset: Preset
-  user: User | null
   onLike: (presetId: string) => void
 }
 
-export default function PresetCard({ preset, user, onLike }: PresetCardProps) {
+export default function PresetCard({ preset, onLike }: PresetCardProps) {
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('ja-JP')
   }
@@ -19,6 +18,11 @@ export default function PresetCard({ preset, user, onLike }: PresetCardProps) {
   const handleViewTrends = () => {
     window.open(preset.npmtrends_url, '_blank')
   }
+
+  // パッケージが文字列の場合はJSONとしてパースする
+  const packages = typeof preset.packages === 'string' 
+    ? JSON.parse(preset.packages) 
+    : preset.packages || [];
 
   return (
     <div className="preset-card">
@@ -38,7 +42,7 @@ export default function PresetCard({ preset, user, onLike }: PresetCardProps) {
       </div>
 
       <div className="packages">
-        {(typeof preset.packages === 'string' ? JSON.parse(preset.packages) : preset.packages || []).map((pkg: string, index: number) => (
+        {packages.map((pkg: string, index: number) => (
           <span key={index} className="package-tag">
             {pkg}
           </span>
@@ -47,10 +51,8 @@ export default function PresetCard({ preset, user, onLike }: PresetCardProps) {
 
       <div className="preset-actions">
         <button
-          className={`like-button ${preset.liked ? 'liked' : ''}`}
+          className="like-button"
           onClick={handleLike}
-          disabled={!user}
-          title={!user ? 'いいねするにはログインが必要です' : ''}
         >
           ❤️ {preset.likes_count}
         </button>

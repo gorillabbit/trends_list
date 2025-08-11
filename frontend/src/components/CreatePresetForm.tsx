@@ -1,101 +1,76 @@
-import { useState } from 'react'
-import { Preset } from '../types'
-import './CreatePresetForm.css'
+import { useState } from 'react';
+import { useAuth } from '@clerk/clerk-react';
+import './CreatePresetForm.css';
 
 interface CreatePresetFormProps {
-  onPresetCreated: (preset: Preset) => void
-  onCancel: () => void
+  onPresetCreated: () => void;
+  onCancel: () => void;
 }
 
 export default function CreatePresetForm({ onPresetCreated, onCancel }: CreatePresetFormProps) {
-  const [title, setTitle] = useState('')
-  const [packageInput, setPackageInput] = useState('')
-  const [packages, setPackages] = useState<string[]>([])
-  const [loading, setLoading] = useState(false)
-  // const [turnstileToken, setTurnstileToken] = useState<string>('')
+  const [title, setTitle] = useState('');
+  const [packageInput, setPackageInput] = useState('');
+  const [packages, setPackages] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
+  const { getToken } = useAuth();
 
   const addPackage = () => {
-    const pkg = packageInput.trim()
+    const pkg = packageInput.trim();
     if (pkg && !packages.includes(pkg)) {
-      setPackages([...packages, pkg])
-      setPackageInput('')
+      setPackages([...packages, pkg]);
+      setPackageInput('');
     }
-  }
+  };
 
   const removePackage = (pkg: string) => {
-    setPackages(packages.filter(p => p !== pkg))
-  }
+    setPackages(packages.filter(p => p !== pkg));
+  };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
-      e.preventDefault()
-      addPackage()
+      e.preventDefault();
+      addPackage();
     }
-  }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
     
     if (!title.trim() || packages.length < 2) {
-      alert('タイトルと2つ以上のパッケージが必要です')
-      return
+      alert('タイトルと2つ以上のパッケージが必要です');
+      return;
     }
 
-    setLoading(true)
+    setLoading(true);
 
     try {
-      // Turnstile検証（本番環境では有効化）
-      // if (turnstileToken) {
-      //   const turnstileRes = await fetch('/api/verify-turnstile', {
-      //     method: 'POST',
-      //     headers: { 'Content-Type': 'application/json' },
-      //     body: JSON.stringify({ token: turnstileToken }),
-      //   })
-      //   if (!turnstileRes.ok) {
-      //     alert('スパム防止チェックに失敗しました')
-      //     return
-      //   }
-      // }
-
+      const token = await getToken();
       const res = await fetch('/api/presets', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
         body: JSON.stringify({
           title: title.trim(),
           packages: packages,
         }),
-      })
+      });
 
-      const data = await res.json()
+      const data = await res.json();
 
       if (res.ok) {
-        // 成功時にプリセット情報を整形
-        const newPreset: Preset = {
-          id: data.id,
-          title: data.title,
-          packages: data.packages,
-          npmtrends_url: data.npmtrends_url,
-          owner_id: '',
-          likes_count: 0,
-          created_at: new Date().toISOString(),
-          liked: false,
-        }
-        onPresetCreated(newPreset)
-        
-        // フォームリセット
-        setTitle('')
-        setPackages([])
-        setPackageInput('')
+        onPresetCreated();
       } else {
-        alert(data.error || 'プリセットの作成に失敗しました')
+        alert(data.error || 'プリセットの作成に失敗しました');
       }
     } catch (err) {
-      console.error('Failed to create preset:', err)
-      alert('プリセットの作成に失敗しました')
+      console.error('Failed to create preset:', err);
+      alert('プリセットの作成に失敗しました');
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   return (
     <div className="create-form">
@@ -153,16 +128,6 @@ export default function CreatePresetForm({ onPresetCreated, onCancel }: CreatePr
           </div>
         )}
 
-        {/* Turnstileウィジェット（本番環境では有効化）
-        <div className="form-group">
-          <div 
-            className="cf-turnstile" 
-            data-sitekey="your-site-key"
-            data-callback="onTurnstileCallback"
-          ></div>
-        </div>
-        */}
-
         <div className="form-actions">
           <button type="button" onClick={onCancel} className="cancel-btn">
             キャンセル
@@ -177,5 +142,5 @@ export default function CreatePresetForm({ onPresetCreated, onCancel }: CreatePr
         </div>
       </form>
     </div>
-  )
+  );
 }
