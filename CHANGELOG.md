@@ -51,11 +51,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - TypeScript type definitions
 - Deployment guide for Cloudflare
 
+## [1.1.0] - 2025-08-10
+
+### Changed
+- **BREAKING CHANGE**: Migrated from Cloudflare Pages Functions to Cloudflare Workers
+- Unified architecture using single Worker with Hono framework
+- Integrated GitHub OAuth directly into main Worker
+- Static file serving through Workers Assets
+- Improved performance and cold start times
+- Simplified deployment process
+
+### Added
+- Hono framework for better routing and middleware
+- Workers Assets for efficient static file serving
+- TypeScript configuration for Workers
+- Comprehensive error handling improvements
+
+### Technical Improvements
+- Better type safety with Cloudflare Workers types
+- Streamlined build process (frontend + worker)
+- Enhanced CORS configuration
+- Optimized session management
+- Improved JWT handling
+
+### Removed
+- Separate Pages Functions architecture
+- Independent auth Worker (now integrated)
+- Middleware complexity from Pages Functions
+
 ## [Unreleased]
 
 ### Planned
 - プリセット検索機能
-- ユーザープロファイル
+- ユーザープロファイル  
 - プリセットカテゴリー
 - コメント機能
 - RSS/Atom フィード

@@ -14,11 +14,12 @@ NPMパッケージのトレンド比較プリセットを作成・共有・い�
 ## 🏗️ アーキテクチャ
 
 - **フロントエンド**: React + TypeScript + Vite
-- **API**: Cloudflare Pages Functions
-- **認証**: GitHub OAuth (Cloudflare Workers)
+- **API**: Cloudflare Workers (Honoフレームワーク)
+- **認証**: GitHub OAuth (統合済み)
 - **データベース**: Cloudflare D1 (SQLite)
 - **キャッシュ**: Cloudflare Workers KV
 - **スパム防止**: Cloudflare Turnstile
+- **静的配信**: Workers Assets
 
 ## 🚀 ローカル開発
 
@@ -35,11 +36,24 @@ npm install
 ```
 
 2. **環境変数の設定**
+
+**自動セットアップ（推奨）：**
+```bash
+# 開発環境用環境変数設定
+npm run setup:dev
+
+# または直接実行
+./setup-dev-env.sh
+```
+
+**手動設定：**
 `.env.local` ファイルを作成:
 ```env
-TURNSTILE_SITE_KEY=1x00000000000000000000AA
+SESSION_SECRET=your_generated_session_secret
 GITHUB_CLIENT_ID=your_github_client_id
-SESSION_SECRET=your_session_secret
+GITHUB_CLIENT_SECRET=your_github_client_secret
+TURNSTILE_SITE_KEY=1x00000000000000000000AA
+TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000000000
 ```
 
 3. **開発サーバー起動**
@@ -59,8 +73,14 @@ npm run dev         # ポート3000
 ### 開発用コマンド
 
 ```bash
-# ビルド
+# ビルド（フロントエンド + Worker）
 npm run build
+
+# フロントエンドのみビルド
+npm run build:frontend
+
+# Worker TypeScript チェック
+npm run build:worker
 
 # リント
 npm run lint
@@ -114,6 +134,17 @@ id = "your-kv-id-here"
 
 ### 4. シークレット設定
 
+**自動セットアップスクリプト使用（推奨）：**
+```bash
+# 本番環境用シークレット設定
+npm run setup:secrets
+
+# または直接実行
+./setup-secrets.sh        # Linux/Mac
+setup-secrets.bat          # Windows
+```
+
+**手動設定：**
 ```bash
 # GitHub OAuth設定
 npx wrangler secret put GITHUB_CLIENT_SECRET
@@ -145,18 +176,18 @@ npx wrangler secret put SESSION_SECRET
 # ビルド
 npm run build
 
-# Pages Functions デプロイ
+# Workers デプロイ
 npm run wrangler:deploy
 
 # または手動デプロイ
-npx wrangler pages deploy dist
+npx wrangler deploy
 ```
 
-### 8. 独立Workers（認証）デプロイ（オプション）
+### 8. ローカル開発サーバー（オプション）
 
 ```bash
-# 認証Workerデプロイ
-npx wrangler deploy workers/auth.ts --name npmtrends-auth
+# Wrangler開発サーバーで確認
+npm run wrangler:dev
 ```
 
 ## 📁 プロジェクト構造
@@ -168,17 +199,14 @@ npx wrangler deploy workers/auth.ts --name npmtrends-auth
 │   │   ├── types.ts        # TypeScript型定義
 │   │   └── ...
 │   └── index.html
-├── functions/              # Pages Functions (API)
-│   ├── api/
-│   │   ├── presets.ts      # プリセットCRUD
-│   │   ├── presets/[slug]/like.ts  # いいね機能
-│   │   ├── me.ts           # ユーザー情報
-│   │   └── verify-turnstile.ts     # Turnstile検証
-│   └── _middleware.ts      # 認証ミドルウェア
-├── workers/                # 独立Workers
-│   └── auth.ts             # GitHub OAuth
+├── src/                    # Cloudflare Workers (Hono)
+│   ├── index.ts            # Worker メインファイル
+│   └── routes/
+│       ├── api.ts          # API ルート (プリセット, いいね, Turnstile)
+│       └── auth.ts         # 認証ルート (GitHub OAuth)
 ├── schema.sql              # D1スキーマ
 ├── wrangler.toml           # Cloudflare設定
+├── tsconfig.worker.json    # Worker TypeScript設定
 ├── package.json
 └── README.md
 ```
@@ -191,9 +219,17 @@ npx wrangler deploy workers/auth.ts --name npmtrends-auth
 name = "npmtrends-presets"
 compatibility_date = "2025-08-01"
 
+# Workers main entry point
+main = "src/index.ts"
+
+# Static assets
+[assets]
+bucket = "./dist"
+binding = "ASSETS"
+
 [[d1_databases]]
 binding = "DB"
-database_name = "npmtrends_presets"
+database_name = "trends_list"
 database_id = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 
 [[kv_namespaces]]
