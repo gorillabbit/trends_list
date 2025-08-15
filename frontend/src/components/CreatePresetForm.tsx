@@ -17,9 +17,17 @@ export default function CreatePresetForm({
 	const { getToken } = useAuth();
 
 	const addPackage = () => {
-		const pkg = packageInput.trim();
-		if (pkg && !packages.includes(pkg)) {
-			setPackages([...packages, pkg]);
+		const input = packageInput.trim();
+		if (!input) return;
+
+		// カンマ区切りで分割
+		const newPackages = input
+			.split(',')
+			.map(pkg => pkg.trim())
+			.filter(pkg => pkg && !packages.includes(pkg));
+
+		if (newPackages.length > 0) {
+			setPackages([...packages, ...newPackages]);
 			setPackageInput('');
 		}
 	};
@@ -123,7 +131,7 @@ export default function CreatePresetForm({
 							value={packageInput}
 							onChange={(e) => setPackageInput(e.target.value)}
 							onKeyPress={handleKeyPress}
-							placeholder="react, vue, angular..."
+							placeholder="react, vue, angular (カンマ区切りで複数入力可能)"
 							className="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
 						/>
 						<button
