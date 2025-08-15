@@ -3,144 +3,166 @@ import { useAuth } from '@clerk/clerk-react';
 import './CreatePresetForm.css';
 
 interface CreatePresetFormProps {
-  onPresetCreated: () => void;
-  onCancel: () => void;
+	onPresetCreated: () => void;
+	onCancel: () => void;
 }
 
-export default function CreatePresetForm({ onPresetCreated, onCancel }: CreatePresetFormProps) {
-  const [title, setTitle] = useState('');
-  const [packageInput, setPackageInput] = useState('');
-  const [packages, setPackages] = useState<string[]>([]);
-  const [loading, setLoading] = useState(false);
-  const { getToken } = useAuth();
+export default function CreatePresetForm({
+	onPresetCreated,
+	onCancel,
+}: CreatePresetFormProps) {
+	const [title, setTitle] = useState('');
+	const [packageInput, setPackageInput] = useState('');
+	const [packages, setPackages] = useState<string[]>([]);
+	const [loading, setLoading] = useState(false);
+	const { getToken } = useAuth();
 
-  const addPackage = () => {
-    const pkg = packageInput.trim();
-    if (pkg && !packages.includes(pkg)) {
-      setPackages([...packages, pkg]);
-      setPackageInput('');
-    }
-  };
+	const addPackage = () => {
+		const pkg = packageInput.trim();
+		if (pkg && !packages.includes(pkg)) {
+			setPackages([...packages, pkg]);
+			setPackageInput('');
+		}
+	};
 
-  const removePackage = (pkg: string) => {
-    setPackages(packages.filter(p => p !== pkg));
-  };
+	const removePackage = (pkg: string) => {
+		setPackages(packages.filter((p) => p !== pkg));
+	};
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      addPackage();
-    }
-  };
+	const handleKeyPress = (e: React.KeyboardEvent) => {
+		if (e.key === 'Enter') {
+			e.preventDefault();
+			addPackage();
+		}
+	};
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!title.trim() || packages.length < 2) {
-      alert('タイトルと2つ以上のパッケージが必要です');
-      return;
-    }
+	const handleSubmit = async (e: React.FormEvent) => {
+		e.preventDefault();
 
-    setLoading(true);
+		if (!title.trim() || packages.length < 2) {
+			alert('タイトルと2つ以上のパッケージが必要です');
+			return;
+		}
 
-    try {
-      const token = await getToken();
-      const res = await fetch('/api/presets', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          title: title.trim(),
-          packages: packages,
-        }),
-      });
+		setLoading(true);
 
-      const data = await res.json();
+		try {
+			const token = await getToken();
+			const res = await fetch('/api/presets', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					Authorization: `Bearer ${token}`,
+				},
+				body: JSON.stringify({
+					title: title.trim(),
+					packages: packages,
+				}),
+			});
 
-      if (res.ok) {
-        onPresetCreated();
-      } else {
-        alert(data.error || 'プリセットの作成に失敗しました');
-      }
-    } catch (err) {
-      console.error('Failed to create preset:', err);
-      alert('プリセットの作成に失敗しました');
-    } finally {
-      setLoading(false);
-    }
-  };
+			const data = await res.json();
 
-  return (
-    <div className="create-form">
-      <div className="form-header">
-        <h3>新しいプリセットを作成</h3>
-        <button className="cancel-button" onClick={onCancel} type="button">
-          ✕
-        </button>
-      </div>
+			if (res.ok) {
+				onPresetCreated();
+			} else {
+				alert(data.error || 'プリセットの作成に失敗しました');
+			}
+		} catch (err) {
+			console.error('Failed to create preset:', err);
+			alert('プリセットの作成に失敗しました');
+		} finally {
+			setLoading(false);
+		}
+	};
 
-      <form onSubmit={handleSubmit}>
-        <div className="form-group">
-          <label htmlFor="title">プリセット名</label>
-          <input
-            id="title"
-            type="text"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="React vs Vue vs Angular"
-            maxLength={100}
-            required
-          />
-        </div>
+	return (
+		<div className="create-form">
+			<div className="form-header">
+				<h3>新しいプリセットを作成</h3>
+				<button
+					className="cancel-button"
+					onClick={onCancel}
+					type="button"
+				>
+					✕
+				</button>
+			</div>
 
-        <div className="form-group">
-          <label htmlFor="package-input">パッケージ名</label>
-          <div className="package-input-container">
-            <input
-              id="package-input"
-              type="text"
-              value={packageInput}
-              onChange={(e) => setPackageInput(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder="react, vue, angular..."
-            />
-            <button type="button" onClick={addPackage} disabled={!packageInput.trim()}>
-              追加
-            </button>
-          </div>
-        </div>
+			<form onSubmit={handleSubmit}>
+				<div className="form-group">
+					<label htmlFor="title">プリセット名</label>
+					<input
+						id="title"
+						type="text"
+						value={title}
+						onChange={(e) => setTitle(e.target.value)}
+						placeholder="React vs Vue vs Angular"
+						maxLength={100}
+						required
+					/>
+				</div>
 
-        {packages.length > 0 && (
-          <div className="packages-preview">
-            <label>選択されたパッケージ ({packages.length}/10)</label>
-            <div className="packages-list">
-              {packages.map(pkg => (
-                <span key={pkg} className="package-tag">
-                  {pkg}
-                  <button type="button" onClick={() => removePackage(pkg)}>
-                    ✕
-                  </button>
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
+				<div className="form-group">
+					<label htmlFor="package-input">パッケージ名</label>
+					<div className="package-input-container">
+						<input
+							id="package-input"
+							type="text"
+							value={packageInput}
+							onChange={(e) => setPackageInput(e.target.value)}
+							onKeyPress={handleKeyPress}
+							placeholder="react, vue, angular..."
+						/>
+						<button
+							type="button"
+							onClick={addPackage}
+							disabled={!packageInput.trim()}
+						>
+							追加
+						</button>
+					</div>
+				</div>
 
-        <div className="form-actions">
-          <button type="button" onClick={onCancel} className="cancel-btn">
-            キャンセル
-          </button>
-          <button 
-            type="submit" 
-            className="submit-btn"
-            disabled={loading || !title.trim() || packages.length < 2}
-          >
-            {loading ? '作成中...' : 'プリセット作成'}
-          </button>
-        </div>
-      </form>
-    </div>
-  );
+				{packages.length > 0 && (
+					<div className="packages-preview">
+						<label>
+							選択されたパッケージ ({packages.length}/10)
+						</label>
+						<div className="packages-list">
+							{packages.map((pkg) => (
+								<span key={pkg} className="package-tag">
+									{pkg}
+									<button
+										type="button"
+										onClick={() => removePackage(pkg)}
+									>
+										✕
+									</button>
+								</span>
+							))}
+						</div>
+					</div>
+				)}
+
+				<div className="form-actions">
+					<button
+						type="button"
+						onClick={onCancel}
+						className="cancel-btn"
+					>
+						キャンセル
+					</button>
+					<button
+						type="submit"
+						className="submit-btn"
+						disabled={
+							loading || !title.trim() || packages.length < 2
+						}
+					>
+						{loading ? '作成中...' : 'プリセット作成'}
+					</button>
+				</div>
+			</form>
+		</div>
+	);
 }
