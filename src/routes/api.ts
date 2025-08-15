@@ -2,6 +2,8 @@
 import { Hono, Context } from 'hono'
 import { clerkMiddleware, getAuth, ClerkAuthVariables } from '@hono/clerk-auth'
 import { D1Database, KVNamespace } from '@cloudflare/workers-types/experimental'
+import { createDB, users, presets, likes, type DrizzleDB } from '../db'
+import { eq, desc, and } from 'drizzle-orm'
 
 type Bindings = {
   DB: D1Database
@@ -18,6 +20,11 @@ type Variables = {
 
 // HonoインスタンスにClerkの型を適用
 export const apiRoutes = new Hono<{ Bindings: Bindings, Variables: Variables }>()
+
+// Database helper
+function getDB(c: Context<{ Bindings: Bindings, Variables: Variables }>): DrizzleDB {
+  return createDB(c.env.DB)
+}
 
 // Add the Clerk middleware to all API routes
 apiRoutes.use('*', async (c, next) => {
@@ -81,32 +88,49 @@ apiRoutes.get('/presets', async (c) => {
       })
     }
 
-    let query = ''
+    const db = getDB(c)
+    
+    let results
     if (sort === 'likes') {
-      query = `
-        SELECT p.id, p.title, p.packages, p.npmtrends_url, p.likes_count, p.created_at,
-               u.name as owner_name, u.avatar_url as owner_avatar
-        FROM presets p
-        LEFT JOIN users u ON p.owner_id = u.id
-        ORDER BY p.likes_count DESC, p.created_at DESC
-        LIMIT ? OFFSET ?
-      `
+      results = await db
+        .select({
+          id: presets.id,
+          title: presets.title,
+          packages: presets.packages,
+          npmtrends_url: presets.npmtrendsUrl,
+          likes_count: presets.likesCount,
+          created_at: presets.createdAt,
+          owner_name: users.name,
+          owner_avatar: users.avatarUrl
+        })
+        .from(presets)
+        .leftJoin(users, eq(presets.ownerId, users.id))
+        .orderBy(desc(presets.likesCount), desc(presets.createdAt))
+        .limit(limit)
+        .offset(offset)
     } else {
-      query = `
-        SELECT p.id, p.title, p.packages, p.npmtrends_url, p.likes_count, p.created_at,
-               u.name as owner_name, u.avatar_url as owner_avatar
-        FROM presets p
-        LEFT JOIN users u ON p.owner_id = u.id
-        ORDER BY p.created_at DESC
-        LIMIT ? OFFSET ?
-      `
+      results = await db
+        .select({
+          id: presets.id,
+          title: presets.title,
+          packages: presets.packages,
+          npmtrends_url: presets.npmtrendsUrl,
+          likes_count: presets.likesCount,
+          created_at: presets.createdAt,
+          owner_name: users.name,
+          owner_avatar: users.avatarUrl
+        })
+        .from(presets)
+        .leftJoin(users, eq(presets.ownerId, users.id))
+        .orderBy(desc(presets.createdAt))
+        .limit(limit)
+        .offset(offset)
     }
 
-    const result = await c.env.DB.prepare(query).bind(limit, offset).all()
     const response = {
-      presets: result.results || [],
+      presets: results,
       page,
-      hasMore: (result.results?.length || 0) === limit
+      hasMore: results.length === limit
     }
 
     await c.env.KV.put(cacheKey, JSON.stringify(response), { expirationTtl: 300 })
@@ -149,21 +173,26 @@ apiRoutes.post('/presets', async (c) => {
     }
 
     const npmtrendsUrl = `https://npmtrends.com/${pkgs.join('-vs-')}`
+    const db = getDB(c)
 
     // Ensure user exists in users table
-    const existingUser = await c.env.DB.prepare('SELECT id FROM users WHERE id = ?').bind(auth.userId).first()
-    if (!existingUser) {
-      await c.env.DB.prepare(`
-        INSERT INTO users (id, name, avatar_url)
-        VALUES (?, ?, ?)
-      `).bind(auth.userId, null, null).run()
+    const existingUser = await db.select().from(users).where(eq(users.id, auth.userId)).limit(1)
+    if (existingUser.length === 0) {
+      await db.insert(users).values({
+        id: auth.userId,
+        name: null,
+        avatarUrl: null
+      })
     }
 
-    // Use auth.userId as the owner_id
-    await c.env.DB.prepare(`
-      INSERT INTO presets (id, title, packages, npmtrends_url, owner_id)
-      VALUES (?, ?, ?, ?, ?)
-    `).bind(slug, title, JSON.stringify(pkgs), npmtrendsUrl, auth.userId).run()
+    // Insert preset
+    await db.insert(presets).values({
+      id: slug,
+      title,
+      packages: JSON.stringify(pkgs),
+      npmtrendsUrl,
+      ownerId: auth.userId
+    })
 
     await Promise.all([
       c.env.KV.delete('presets:list:likes:1'),
@@ -195,32 +224,49 @@ apiRoutes.post('/presets/:slug/like', async (c) => {
       return c.json({ error: 'プリセットが見つかりません' }, 404)
     }
 
-    const preset = await c.env.DB.prepare('SELECT id FROM presets WHERE id = ?').bind(slug).first()
-    if (!preset) {
+    const db = getDB(c)
+
+    // Check if preset exists
+    const preset = await db.select().from(presets).where(eq(presets.id, slug)).limit(1)
+    if (preset.length === 0) {
       return c.json({ error: 'プリセットが見つかりません' }, 404)
     }
 
     // Ensure user exists in users table
-    const existingUser = await c.env.DB.prepare('SELECT id FROM users WHERE id = ?').bind(auth.userId).first()
-    if (!existingUser) {
-      await c.env.DB.prepare(`
-        INSERT INTO users (id, name, avatar_url)
-        VALUES (?, ?, ?)
-      `).bind(auth.userId, null, null).run()
+    const existingUser = await db.select().from(users).where(eq(users.id, auth.userId)).limit(1)
+    if (existingUser.length === 0) {
+      await db.insert(users).values({
+        id: auth.userId,
+        name: null,
+        avatarUrl: null
+      })
     }
 
-    const liked = await c.env.DB.prepare('SELECT 1 FROM likes WHERE user_id=? AND preset_id=?').bind(auth.userId, slug).first()
+    // Check if already liked
+    const existingLike = await db.select().from(likes)
+      .where(and(eq(likes.userId, auth.userId), eq(likes.presetId, slug)))
+      .limit(1)
 
-    if (liked) {
-      await c.env.DB.batch([
-        c.env.DB.prepare('DELETE FROM likes WHERE user_id=? AND preset_id=?').bind(auth.userId, slug),
-        c.env.DB.prepare('UPDATE presets SET likes_count = likes_count - 1 WHERE id=?').bind(slug),
-      ])
+    const isLiked = existingLike.length > 0
+
+    if (isLiked) {
+      // Unlike: remove like and decrement count
+      await db.delete(likes)
+        .where(and(eq(likes.userId, auth.userId), eq(likes.presetId, slug)))
+      
+      await db.update(presets)
+        .set({ likesCount: preset[0].likesCount! - 1 })
+        .where(eq(presets.id, slug))
     } else {
-      await c.env.DB.batch([
-        c.env.DB.prepare('INSERT INTO likes (user_id, preset_id) VALUES (?, ?)').bind(auth.userId, slug),
-        c.env.DB.prepare('UPDATE presets SET likes_count = likes_count + 1 WHERE id=?').bind(slug),
-      ])
+      // Like: add like and increment count
+      await db.insert(likes).values({
+        userId: auth.userId,
+        presetId: slug
+      })
+      
+      await db.update(presets)
+        .set({ likesCount: (preset[0].likesCount || 0) + 1 })
+        .where(eq(presets.id, slug))
     }
 
     await Promise.all([
@@ -228,11 +274,14 @@ apiRoutes.post('/presets/:slug/like', async (c) => {
       c.env.KV.delete(`preset:${slug}`),
     ])
 
-    const updatedPreset = await c.env.DB.prepare('SELECT likes_count FROM presets WHERE id = ?').bind(slug).first()
+    const updatedPreset = await db.select({ likesCount: presets.likesCount })
+      .from(presets)
+      .where(eq(presets.id, slug))
+      .limit(1)
 
     return c.json({
-      liked: !liked,
-      likes_count: updatedPreset?.likes_count || 0
+      liked: !isLiked,
+      likes_count: updatedPreset[0]?.likesCount || 0
     })
   } catch (error) {
     console.error('Failed to toggle like:', error)
