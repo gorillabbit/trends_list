@@ -23,8 +23,8 @@ export default function CreatePresetForm({
 		// カンマ区切りで分割
 		const newPackages = input
 			.split(',')
-			.map(pkg => pkg.trim())
-			.filter(pkg => pkg && !packages.includes(pkg));
+			.map((pkg) => pkg.trim())
+			.filter((pkg) => pkg && !packages.includes(pkg));
 
 		if (newPackages.length > 0) {
 			setPackages([...packages, ...newPackages]);

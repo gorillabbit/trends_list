@@ -10,8 +10,12 @@ export default function PresetList({ presets, onLike }: PresetListProps) {
 	if (presets.length === 0) {
 		return (
 			<div className="text-center py-12">
-				<h3 className="text-xl font-semibold mb-2">まだプリセットがありません</h3>
-				<p className="text-gray-400">最初のプリセットを作成してみませんか？</p>
+				<h3 className="text-xl font-semibold mb-2">
+					まだプリセットがありません
+				</h3>
+				<p className="text-gray-400">
+					最初のプリセットを作成してみませんか？
+				</p>
 			</div>
 		);
 	}
