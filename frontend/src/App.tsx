@@ -3,7 +3,6 @@ import Header from './components/Header';
 import PresetList from './components/PresetList';
 import CreatePresetForm from './components/CreatePresetForm';
 import { Preset } from './types';
-import './App.css';
 import { useAuth } from '@clerk/clerk-react';
 
 function App() {
@@ -61,13 +60,15 @@ function App() {
 	};
 
 	return (
-		<div className="app">
+		<div className="bg-blue-500 text-white p-4 rounded-lg shadow-lg">
 			<Header onCreateClick={() => setShowCreateForm(true)} />
 
-			<main className="container">
-				<div className="hero">
-					<h1>NPM Trends Presets</h1>
-					<p>
+			<main className="container mx-auto px-4 py-8">
+				<div className="text-center mb-12">
+					<h1 className="text-4xl font-bold mb-4">
+						NPM Trends Presets
+					</h1>
+					<p className="text-gray-400 text-lg">
 						お気に入りのNPMパッケージの組み合わせを保存・共有しよう
 					</p>
 				</div>

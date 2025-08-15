@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useAuth } from '@clerk/clerk-react';
-import './CreatePresetForm.css';
 
 interface CreatePresetFormProps {
 	onPresetCreated: () => void;
@@ -76,11 +75,13 @@ export default function CreatePresetForm({
 	};
 
 	return (
-		<div className="create-form">
-			<div className="form-header">
-				<h3>新しいプリセットを作成</h3>
+		<div className="bg-gray-800 border border-gray-700 rounded-lg p-6 mb-8">
+			<div className="flex items-center justify-between mb-6">
+				<h3 className="text-xl font-semibold">
+					新しいプリセットを作成
+				</h3>
 				<button
-					className="cancel-button"
+					className="text-gray-400 hover:text-white transition-colors"
 					onClick={onCancel}
 					type="button"
 				>
@@ -88,9 +89,14 @@ export default function CreatePresetForm({
 				</button>
 			</div>
 
-			<form onSubmit={handleSubmit}>
-				<div className="form-group">
-					<label htmlFor="title">プリセット名</label>
+			<form onSubmit={handleSubmit} className="space-y-4">
+				<div>
+					<label
+						htmlFor="title"
+						className="block text-sm font-medium mb-2"
+					>
+						プリセット名
+					</label>
 					<input
 						id="title"
 						type="text"
@@ -99,12 +105,18 @@ export default function CreatePresetForm({
 						placeholder="React vs Vue vs Angular"
 						maxLength={100}
 						required
+						className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
 					/>
 				</div>
 
-				<div className="form-group">
-					<label htmlFor="package-input">パッケージ名</label>
-					<div className="package-input-container">
+				<div>
+					<label
+						htmlFor="package-input"
+						className="block text-sm font-medium mb-2"
+					>
+						パッケージ名
+					</label>
+					<div className="flex gap-2">
 						<input
 							id="package-input"
 							type="text"
@@ -112,11 +124,13 @@ export default function CreatePresetForm({
 							onChange={(e) => setPackageInput(e.target.value)}
 							onKeyPress={handleKeyPress}
 							placeholder="react, vue, angular..."
+							className="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
 						/>
 						<button
 							type="button"
 							onClick={addPackage}
 							disabled={!packageInput.trim()}
+							className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 px-4 py-2 rounded-lg transition-colors"
 						>
 							追加
 						</button>
@@ -124,17 +138,21 @@ export default function CreatePresetForm({
 				</div>
 
 				{packages.length > 0 && (
-					<div className="packages-preview">
-						<label>
+					<div>
+						<label className="block text-sm font-medium mb-2">
 							選択されたパッケージ ({packages.length}/10)
 						</label>
-						<div className="packages-list">
+						<div className="flex flex-wrap gap-2">
 							{packages.map((pkg) => (
-								<span key={pkg} className="package-tag">
+								<span
+									key={pkg}
+									className="bg-blue-600 text-white px-3 py-1 rounded-md text-sm flex items-center gap-2"
+								>
 									{pkg}
 									<button
 										type="button"
 										onClick={() => removePackage(pkg)}
+										className="hover:text-red-300 transition-colors"
 									>
 										✕
 									</button>
@@ -144,20 +162,20 @@ export default function CreatePresetForm({
 					</div>
 				)}
 
-				<div className="form-actions">
+				<div className="flex gap-3 pt-4">
 					<button
 						type="button"
 						onClick={onCancel}
-						className="cancel-btn"
+						className="bg-gray-600 hover:bg-gray-700 px-4 py-2 rounded-lg transition-colors"
 					>
 						キャンセル
 					</button>
 					<button
 						type="submit"
-						className="submit-btn"
 						disabled={
 							loading || !title.trim() || packages.length < 2
 						}
+						className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 px-4 py-2 rounded-lg transition-colors flex-1"
 					>
 						{loading ? '作成中...' : 'プリセット作成'}
 					</button>

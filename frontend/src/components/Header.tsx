@@ -4,7 +4,6 @@ import {
 	SignedOut,
 	UserButton,
 } from '@clerk/clerk-react';
-import './Header.css';
 
 interface HeaderProps {
 	onCreateClick: () => void;
@@ -12,28 +11,24 @@ interface HeaderProps {
 
 export default function Header({ onCreateClick }: HeaderProps) {
 	return (
-		<header className="header">
-			<div className="header-container">
-				<div className="header-left">
-					<h2 className="logo">📈 NPM Trends</h2>
-				</div>
+		<header className="bg-gray-800 border-b border-gray-700 sticky top-0 z-50">
+			<div className="container mx-auto px-4 py-4 flex items-center justify-between">
+				<h2 className="text-xl font-bold">📈 NPM Trends</h2>
 
-				<div className="header-right">
+				<div className="flex items-center gap-4">
 					<SignedIn>
-						<div className="user-menu">
-							<button
-								className="create-button"
-								onClick={onCreateClick}
-							>
-								✨ プリセット作成
-							</button>
-							<UserButton afterSignOutUrl="/" />
-						</div>
+						<button
+							className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg font-medium transition-colors"
+							onClick={onCreateClick}
+						>
+							プリセット作成
+						</button>
+						<UserButton afterSignOutUrl="/" />
 					</SignedIn>
 					<SignedOut>
 						<SignInButton mode="redirect">
-							<button className="login-button">
-								ログイン / 新規登録
+							<button className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg font-medium transition-colors">
+								ログイン
 							</button>
 						</SignInButton>
 					</SignedOut>
