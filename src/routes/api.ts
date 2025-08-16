@@ -2,7 +2,7 @@
 import { Hono, Context } from 'hono'
 import { clerkMiddleware, getAuth, ClerkAuthVariables } from '@hono/clerk-auth'
 import { D1Database, KVNamespace } from '@cloudflare/workers-types/experimental'
-import { createDB, users, presets, likes, type DrizzleDB } from '../db'
+import { createDB, users, presets, likes, packages, type DrizzleDB } from '../db'
 import { eq, desc, and } from 'drizzle-orm'
 
 type Bindings = {
@@ -56,6 +56,61 @@ function requireAuth(c: Context<{ Bindings: Bindings, Variables: Variables }>) {
     throw new Error('Authentication required');
   }
   return auth;
+}
+
+// Fetch package info from npm API
+async function fetchPackageInfo(packageName: string) {
+  try {
+    const response = await fetch(`https://registry.npmjs.org/${encodeURIComponent(packageName)}`);
+    if (!response.ok) {
+      return null;
+    }
+    const data = await response.json() as any;
+    
+    return {
+      name: data.name || packageName,
+      description: data.description || '',
+      repository: data.repository?.url || data.repository || '',
+      homepage: data.homepage || '',
+    };
+  } catch (error) {
+    console.error(`Failed to fetch package info for ${packageName}:`, error);
+    return null;
+  }
+}
+
+// Fetch package download stats
+async function fetchPackageDownloads(packageName: string) {
+  try {
+    const response = await fetch(`https://api.npmjs.org/downloads/point/last-week/${encodeURIComponent(packageName)}`);
+    if (!response.ok) {
+      return 0;
+    }
+    const data = await response.json() as any;
+    return data.downloads || 0;
+  } catch (error) {
+    console.error(`Failed to fetch download stats for ${packageName}:`, error);
+    return 0;
+  }
+}
+
+// Ensure package exists in database
+async function ensurePackageExists(db: DrizzleDB, packageName: string) {
+  const existing = await db.select().from(packages).where(eq(packages.id, packageName)).limit(1);
+  
+  if (existing.length === 0) {
+    const packageInfo = await fetchPackageInfo(packageName);
+    const downloads = await fetchPackageDownloads(packageName);
+    
+    await db.insert(packages).values({
+      id: packageName,
+      name: packageInfo?.name || packageName,
+      description: packageInfo?.description || '',
+      weeklyDownloads: downloads,
+      repository: packageInfo?.repository || '',
+      homepage: packageInfo?.homepage || '',
+    });
+  }
 }
 
 // GET /api/me - Get current user info from Clerk
@@ -331,5 +386,118 @@ apiRoutes.post('/verify-turnstile', async (c) => {
   } catch (error) {
     console.error('Turnstile verification error:', error)
     return c.json({ success: false, error: 'Turnstile検証処理でエラーが発生しました' }, 500)
+  }
+})
+
+// GET /api/packages/:packageName/presets - Get presets that use a specific package
+apiRoutes.get('/packages/:packageName/presets', async (c) => {
+  try {
+    const packageName = c.req.param('packageName')
+    const url = new URL(c.req.url)
+    const page = parseInt(url.searchParams.get('page') || '1')
+    const limit = 20
+    const offset = (page - 1) * limit
+
+    if (!packageName) {
+      return c.json({ error: 'パッケージ名が必要です' }, 400)
+    }
+
+    const cacheKey = `package:${packageName}:presets:${page}`
+    const cached = await c.env.KV.get(cacheKey)
+    if (cached) {
+      return c.json(JSON.parse(cached), 200, {
+        'Cache-Control': 'public, max-age=300'
+      })
+    }
+
+    const db = getDB(c)
+
+    // Method 1: Search in JSON packages field (for existing data)
+    const jsonResults = await db
+      .select({
+        id: presets.id,
+        title: presets.title,
+        packages: presets.packages,
+        npmtrends_url: presets.npmtrendsUrl,
+        likes_count: presets.likesCount,
+        created_at: presets.createdAt,
+        owner_name: users.name,
+        owner_avatar: users.avatarUrl
+      })
+      .from(presets)
+      .leftJoin(users, eq(presets.ownerId, users.id))
+      .orderBy(desc(presets.likesCount), desc(presets.createdAt))
+      .limit(limit)
+      .offset(offset)
+
+    // Filter results that contain the package in their JSON packages field
+    const filteredResults = jsonResults.filter(preset => {
+      try {
+        const packageList = JSON.parse(preset.packages);
+        return packageList.includes(packageName);
+      } catch {
+        return false;
+      }
+    });
+
+    const response = {
+      presets: filteredResults,
+      package: packageName,
+      page,
+      hasMore: filteredResults.length === limit
+    }
+
+    await c.env.KV.put(cacheKey, JSON.stringify(response), { expirationTtl: 300 })
+
+    return c.json(response, 200, {
+      'Cache-Control': 'public, max-age=300'
+    })
+  } catch (error) {
+    console.error('Failed to get package presets:', error)
+    return c.json({ error: 'パッケージのプリセット取得に失敗しました' }, 500)
+  }
+})
+
+// GET /api/packages/:packageName - Get package details
+apiRoutes.get('/packages/:packageName', async (c) => {
+  try {
+    const packageName = c.req.param('packageName')
+    
+    if (!packageName) {
+      return c.json({ error: 'パッケージ名が必要です' }, 400)
+    }
+
+    const cacheKey = `package:${packageName}:details`
+    const cached = await c.env.KV.get(cacheKey)
+    if (cached) {
+      return c.json(JSON.parse(cached), 200, {
+        'Cache-Control': 'public, max-age=3600'
+      })
+    }
+
+    const db = getDB(c)
+    
+    // Try to get from database first
+    let packageData = await db.select().from(packages).where(eq(packages.id, packageName)).limit(1)
+    
+    if (packageData.length === 0) {
+      // Fetch from npm API if not in database
+      await ensurePackageExists(db, packageName)
+      packageData = await db.select().from(packages).where(eq(packages.id, packageName)).limit(1)
+    }
+
+    if (packageData.length === 0) {
+      return c.json({ error: 'パッケージが見つかりません' }, 404)
+    }
+
+    const response = packageData[0]
+    await c.env.KV.put(cacheKey, JSON.stringify(response), { expirationTtl: 3600 })
+
+    return c.json(response, 200, {
+      'Cache-Control': 'public, max-age=3600'
+    })
+  } catch (error) {
+    console.error('Failed to get package details:', error)
+    return c.json({ error: 'パッケージ詳細の取得に失敗しました' }, 500)
   }
 })

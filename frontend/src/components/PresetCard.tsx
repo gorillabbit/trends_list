@@ -1,4 +1,5 @@
 import { Preset } from '../types';
+import { useNavigate } from 'react-router-dom';
 
 interface PresetCardProps {
 	preset: Preset;
@@ -6,6 +7,8 @@ interface PresetCardProps {
 }
 
 export default function PresetCard({ preset, onLike }: PresetCardProps) {
+	const navigate = useNavigate();
+
 	const formatDate = (dateString: string) => {
 		return new Date(dateString).toLocaleDateString('ja-JP');
 	};
@@ -17,6 +20,11 @@ export default function PresetCard({ preset, onLike }: PresetCardProps) {
 
 	const handleCardClick = () => {
 		window.open(preset.npmtrends_url, '_blank');
+	};
+
+	const handlePackageClick = (e: React.MouseEvent, packageName: string) => {
+		e.stopPropagation();
+		navigate(`/packages/${encodeURIComponent(packageName)}`);
 	};
 
 	// パッケージが文字列の場合はJSONとしてパースする
@@ -48,13 +56,14 @@ export default function PresetCard({ preset, onLike }: PresetCardProps) {
 
 			<div className="flex flex-wrap gap-2 mb-4">
 				{packages.map((pkg: string, index: number) => (
-					<span
+					<button
 						key={index}
-						className="bg-blue-600 text-white px-3 py-1 rounded-md text-sm"
-						onClick={(e) => e.stopPropagation()}
+						className="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1 rounded-md text-sm transition-colors cursor-pointer"
+						onClick={(e) => handlePackageClick(e, pkg)}
+						title={`${pkg} を使用しているプリセットを見る`}
 					>
 						{pkg}
-					</span>
+					</button>
 				))}
 			</div>
 

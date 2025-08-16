@@ -9,3 +9,22 @@ export interface Preset {
   owner_name?: string
   owner_avatar?: string
 }
+
+export interface Package {
+  id: string
+  name: string
+  description?: string
+  weekly_downloads: number
+  repository?: string
+  homepage?: string
+  last_update: string
+  created_at: string
+}
+
+export interface PackagePresetsResponse {
+  presets: Preset[]
+  package: string
+  page: number
+  hasMore: boolean
+  error?: string
+}
