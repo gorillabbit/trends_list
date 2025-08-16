@@ -2,8 +2,8 @@
 import { Hono, Context } from 'hono'
 import { clerkMiddleware, getAuth, ClerkAuthVariables } from '@hono/clerk-auth'
 import { D1Database, KVNamespace } from '@cloudflare/workers-types/experimental'
-import { createDB, users, presets, likes, packages, type DrizzleDB } from '../db'
-import { eq, desc, and } from 'drizzle-orm'
+import { createDB, users, presets, likes, packages, tags, packageTags, type DrizzleDB } from '../db'
+import { eq, desc, and, inArray } from 'drizzle-orm'
 
 type Bindings = {
   DB: D1Database
@@ -490,7 +490,27 @@ apiRoutes.get('/packages/:packageName', async (c) => {
       return c.json({ error: 'パッケージが見つかりません' }, 404)
     }
 
-    const response = packageData[0]
+    // Get tags for this package
+    const pkgTags = await db
+      .select({
+        id: tags.id,
+        name: tags.name,
+        description: tags.description,
+        color: tags.color,
+        created_at: tags.createdAt,
+      })
+      .from(tags)
+      .innerJoin(packageTags, eq(tags.id, packageTags.tagId))
+      .where(eq(packageTags.packageId, packageName))
+      .catch((error) => {
+        console.error('Failed to fetch package tags:', error);
+        return []; // Return empty array if tags query fails
+      })
+
+    const response = {
+      ...packageData[0],
+      tags: pkgTags
+    }
     await c.env.KV.put(cacheKey, JSON.stringify(response), { expirationTtl: 3600 })
 
     return c.json(response, 200, {
@@ -499,5 +519,273 @@ apiRoutes.get('/packages/:packageName', async (c) => {
   } catch (error) {
     console.error('Failed to get package details:', error)
     return c.json({ error: 'パッケージ詳細の取得に失敗しました' }, 500)
+  }
+})
+
+// GET /api/tags - Get all tags
+apiRoutes.get('/tags', async (c) => {
+  try {
+    const cacheKey = 'tags:all'
+    const cached = await c.env.KV.get(cacheKey)
+    if (cached) {
+      return c.json(JSON.parse(cached), 200, {
+        'Cache-Control': 'public, max-age=300'
+      })
+    }
+
+    const db = getDB(c)
+    const results = await db.select().from(tags).orderBy(tags.name)
+
+    const response = { tags: results }
+    await c.env.KV.put(cacheKey, JSON.stringify(response), { expirationTtl: 300 })
+
+    return c.json(response, 200, {
+      'Cache-Control': 'public, max-age=300'
+    })
+  } catch (error) {
+    console.error('Failed to get tags:', error)
+    return c.json({ error: 'タグの取得に失敗しました' }, 500)
+  }
+})
+
+// GET /api/tags/:tagId - Get specific tag
+apiRoutes.get('/tags/:tagId', async (c) => {
+  try {
+    const tagId = c.req.param('tagId')
+    
+    if (!tagId) {
+      return c.json({ error: 'タグIDが必要です' }, 400)
+    }
+
+    const cacheKey = `tag:${tagId}:details`
+    const cached = await c.env.KV.get(cacheKey)
+    if (cached) {
+      return c.json(JSON.parse(cached), 200, {
+        'Cache-Control': 'public, max-age=300'
+      })
+    }
+
+    const db = getDB(c)
+    const results = await db.select().from(tags).where(eq(tags.id, tagId)).limit(1)
+
+    if (results.length === 0) {
+      return c.json({ error: 'タグが見つかりません' }, 404)
+    }
+
+    const response = results[0]
+    await c.env.KV.put(cacheKey, JSON.stringify(response), { expirationTtl: 300 })
+
+    return c.json(response, 200, {
+      'Cache-Control': 'public, max-age=300'
+    })
+  } catch (error) {
+    console.error('Failed to get tag details:', error)
+    return c.json({ error: 'タグ詳細の取得に失敗しました' }, 500)
+  }
+})
+
+// POST /api/tags - Create new tag (auth required)
+apiRoutes.post('/tags', async (c) => {
+  try {
+    requireAuth(c)
+    const body = await c.req.json()
+    const { name, description, color } = body
+
+    if (!name || typeof name !== 'string' || name.trim().length === 0) {
+      return c.json({ error: 'タグ名が必要です' }, 400)
+    }
+
+    const trimmedName = name.trim()
+    if (trimmedName.length > 50) {
+      return c.json({ error: 'タグ名は50文字以内で入力してください' }, 400)
+    }
+
+    const trimmedDescription = description?.trim() || undefined
+    if (trimmedDescription && trimmedDescription.length > 200) {
+      return c.json({ error: '説明は200文字以内で入力してください' }, 400)
+    }
+
+    const validColor = color && /^#[0-9A-Fa-f]{6}$/.test(color) ? color : '#3B82F6'
+
+    const db = getDB(c)
+
+    // Check if tag already exists
+    const existing = await db.select().from(tags).where(eq(tags.name, trimmedName)).limit(1)
+    if (existing.length > 0) {
+      return c.json({ error: 'このタグ名は既に存在します' }, 400)
+    }
+
+    const tagId = `tag_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+
+    await db.insert(tags).values({
+      id: tagId,
+      name: trimmedName,
+      description: trimmedDescription,
+      color: validColor,
+    })
+
+    // Clear cache
+    await c.env.KV.delete('tags:all')
+
+    const newTag = {
+      id: tagId,
+      name: trimmedName,
+      description: trimmedDescription,
+      color: validColor,
+      created_at: new Date().toISOString()
+    }
+
+    return c.json(newTag)
+  } catch (error) {
+    console.error('Failed to create tag:', error)
+    if (error instanceof Error && error.message === 'Authentication required') {
+      return c.json({ error: 'ログインが必要です' }, 401)
+    }
+    return c.json({ error: 'タグの作成に失敗しました' }, 500)
+  }
+})
+
+// PUT /api/packages/:packageName/tags - Update package tags (auth required)
+apiRoutes.put('/packages/:packageName/tags', async (c) => {
+  try {
+    requireAuth(c)
+    const packageName = c.req.param('packageName')
+    const body = await c.req.json()
+    const { tagIds } = body
+
+    if (!packageName) {
+      return c.json({ error: 'パッケージ名が必要です' }, 400)
+    }
+
+    if (!Array.isArray(tagIds)) {
+      return c.json({ error: 'タグIDの配列が必要です' }, 400)
+    }
+
+    const db = getDB(c)
+
+    // Ensure package exists
+    await ensurePackageExists(db, packageName)
+
+    // Verify all tag IDs exist
+    if (tagIds.length > 0) {
+      const existingTags = await db.select({ id: tags.id }).from(tags)
+      const existingTagIds = existingTags.map(t => t.id)
+      const invalidTagIds = tagIds.filter(id => !existingTagIds.includes(id))
+      
+      if (invalidTagIds.length > 0) {
+        return c.json({ error: '無効なタグIDが含まれています' }, 400)
+      }
+    }
+
+    // Remove existing package tags
+    await db.delete(packageTags).where(eq(packageTags.packageId, packageName))
+
+    // Add new package tags
+    if (tagIds.length > 0) {
+      const values = tagIds.map((tagId: string) => ({
+        packageId: packageName,
+        tagId
+      }))
+      await db.insert(packageTags).values(values)
+    }
+
+    // Clear cache
+    await Promise.all([
+      c.env.KV.delete(`package:${packageName}:details`),
+      c.env.KV.delete(`package:${packageName}:presets:1`),
+    ])
+
+    return c.json({ success: true })
+  } catch (error) {
+    console.error('Failed to update package tags:', error)
+    if (error instanceof Error && error.message === 'Authentication required') {
+      return c.json({ error: 'ログインが必要です' }, 401)
+    }
+    return c.json({ error: 'パッケージタグの更新に失敗しました' }, 500)
+  }
+})
+
+// GET /api/packages/by-tags - Get packages by tag IDs
+apiRoutes.get('/packages/by-tags', async (c) => {
+  try {
+    const url = new URL(c.req.url)
+    const tagIdsParam = url.searchParams.get('tagIds')
+    const excludeParam = url.searchParams.get('exclude')
+    const limit = parseInt(url.searchParams.get('limit') || '20')
+
+    if (!tagIdsParam) {
+      return c.json({ error: 'タグIDが必要です' }, 400)
+    }
+
+    const tagIds = tagIdsParam.split(',').filter(id => id.trim())
+    if (tagIds.length === 0) {
+      return c.json({ packages: [] })
+    }
+
+    const cacheKey = `packages:by-tags:${tagIdsParam}:${excludeParam || ''}:${limit}`
+    const cached = await c.env.KV.get(cacheKey)
+    if (cached) {
+      return c.json(JSON.parse(cached), 200, {
+        'Cache-Control': 'public, max-age=300'
+      })
+    }
+
+    const db = getDB(c)
+
+    // Get packages that have any of the specified tags
+    const results = await db
+      .selectDistinct({
+        id: packages.id,
+        name: packages.name,
+        description: packages.description,
+        weekly_downloads: packages.weeklyDownloads,
+        repository: packages.repository,
+        homepage: packages.homepage,
+        last_update: packages.lastUpdate,
+        created_at: packages.createdAt,
+      })
+      .from(packages)
+      .innerJoin(packageTags, eq(packages.id, packageTags.packageId))
+      .innerJoin(tags, eq(packageTags.tagId, tags.id))
+      .where(inArray(tags.id, tagIds))
+      .orderBy(desc(packages.weeklyDownloads))
+      .limit(limit)
+
+    // Filter out excluded package if specified
+    const filteredResults = excludeParam 
+      ? results.filter(pkg => pkg.id !== excludeParam)
+      : results
+
+    // Get tags for each package
+    const packagesWithTags = await Promise.all(
+      filteredResults.map(async (pkg) => {
+        const pkgTags = await db
+          .select({
+            id: tags.id,
+            name: tags.name,
+            description: tags.description,
+            color: tags.color,
+            created_at: tags.createdAt,
+          })
+          .from(tags)
+          .innerJoin(packageTags, eq(tags.id, packageTags.tagId))
+          .where(eq(packageTags.packageId, pkg.id))
+
+        return {
+          ...pkg,
+          tags: pkgTags
+        }
+      })
+    )
+
+    const response = { packages: packagesWithTags }
+    await c.env.KV.put(cacheKey, JSON.stringify(response), { expirationTtl: 300 })
+
+    return c.json(response, 200, {
+      'Cache-Control': 'public, max-age=300'
+    })
+  } catch (error) {
+    console.error('Failed to get packages by tags:', error)
+    return c.json({ error: 'タグによるパッケージ検索に失敗しました' }, 500)
   }
 })

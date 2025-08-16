@@ -10,6 +10,14 @@ export interface Preset {
   owner_avatar?: string
 }
 
+export interface Tag {
+  id: string
+  name: string
+  description?: string
+  color: string
+  created_at: string
+}
+
 export interface Package {
   id: string
   name: string
@@ -19,6 +27,7 @@ export interface Package {
   homepage?: string
   last_update: string
   created_at: string
+  tags?: Tag[]
 }
 
 export interface PackagePresetsResponse {

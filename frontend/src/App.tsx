@@ -1,6 +1,8 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Home from './components/Home';
 import PackagePresets from './components/PackagePresets';
+import TagList from './components/TagList';
+import TagDetail from './components/TagDetail';
 
 function App() {
 	return (
@@ -9,6 +11,8 @@ function App() {
 				<Routes>
 					<Route path="/" element={<Home />} />
 					<Route path="/packages/:packageName" element={<PackagePresets />} />
+					<Route path="/tags" element={<TagList />} />
+					<Route path="/tags/:tagId" element={<TagDetail />} />
 				</Routes>
 			</Router>
 		</div>

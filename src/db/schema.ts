@@ -45,6 +45,22 @@ export const presetPackages = sqliteTable('preset_packages', {
   primaryKey({ columns: [table.presetId, table.packageId] })
 ]);
 
+export const tags = sqliteTable('tags', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull().unique(),
+  description: text('description'),
+  color: text('color').default('#3B82F6'), // デフォルトは青色
+  createdAt: text('created_at').default(sql`(datetime('now'))`)
+});
+
+export const packageTags = sqliteTable('package_tags', {
+  packageId: text('package_id').notNull().references(() => packages.id),
+  tagId: text('tag_id').notNull().references(() => tags.id),
+  createdAt: text('created_at').default(sql`(datetime('now'))`)
+}, (table) => [
+  primaryKey({ columns: [table.packageId, table.tagId] })
+]);
+
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type Preset = typeof presets.$inferSelect;
@@ -55,3 +71,7 @@ export type Package = typeof packages.$inferSelect;
 export type NewPackage = typeof packages.$inferInsert;
 export type PresetPackage = typeof presetPackages.$inferSelect;
 export type NewPresetPackage = typeof presetPackages.$inferInsert;
+export type Tag = typeof tags.$inferSelect;
+export type NewTag = typeof tags.$inferInsert;
+export type PackageTag = typeof packageTags.$inferSelect;
+export type NewPackageTag = typeof packageTags.$inferInsert;

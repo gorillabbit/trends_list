@@ -4,6 +4,7 @@ import {
 	SignedOut,
 	UserButton,
 } from '@clerk/clerk-react';
+import { Link } from 'react-router-dom';
 
 interface HeaderProps {
 	onCreateClick: () => void;
@@ -16,6 +17,12 @@ export default function Header({ onCreateClick }: HeaderProps) {
 				<h2 className="text-xl font-bold">📈 NPM Trends</h2>
 
 				<div className="flex items-center gap-4">
+					<Link 
+						to="/tags" 
+						className="text-gray-300 hover:text-white transition-colors"
+					>
+						タグ一覧
+					</Link>
 					<SignedIn>
 						<button
 							className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg font-medium transition-colors"
