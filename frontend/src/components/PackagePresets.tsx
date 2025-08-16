@@ -145,7 +145,7 @@ function PackagePresets() {
 	}
 
 	return (
-		<div className="min-h-screen bg-gray-50">
+		<div className="package-presets-container">
 			<div className="container mx-auto px-4 py-8">
 				<div className="mb-8">
 					<HomeLink />

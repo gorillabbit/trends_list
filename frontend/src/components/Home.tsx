@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Box, Container, Typography } from '@mui/material';
 import Header from './Header';
 import PresetList from './PresetList';
 import CreatePresetForm from './CreatePresetForm';
@@ -57,18 +58,18 @@ function Home() {
 	};
 
 	return (
-		<div className="bg-blue-500 text-white p-4 rounded-lg shadow-lg max-w-6xl mx-auto my-8">
+		<Box>
 			<Header onCreateClick={() => setShowCreateForm(true)} />
 
-			<main className="container mx-auto px-4 py-8">
-				<div className="text-center mb-12">
-					<h1 className="text-4xl font-bold mb-4">
+			<Container maxWidth="lg" sx={{ py: 4 }}>
+				<Box sx={{ textAlign: 'center', mb: 6 }}>
+					<Typography variant="h2" component="h1" sx={{ mb: 2 }}>
 						NPM Trends Presets
-					</h1>
-					<p className="text-lg">
+					</Typography>
+					<Typography variant="h6" color="text.secondary">
 						お気に入りのNPMパッケージの組み合わせを保存・共有しよう
-					</p>
-				</div>
+					</Typography>
+				</Box>
 
 				{isSignedIn && showCreateForm && (
 					<CreatePresetForm
@@ -78,8 +79,8 @@ function Home() {
 				)}
 
 				<PresetList presets={presets} onLike={handleLike} />
-			</main>
-		</div>
+			</Container>
+		</Box>
 	);
 }
 

@@ -5,6 +5,7 @@ import {
 	UserButton,
 } from '@clerk/clerk-react';
 import { Link } from 'react-router-dom';
+import { AppBar, Toolbar, Typography, Box, Button } from '@mui/material';
 
 interface HeaderProps {
 	onCreateClick: () => void;
@@ -12,35 +13,51 @@ interface HeaderProps {
 
 export default function Header({ onCreateClick }: HeaderProps) {
 	return (
-		<header className="bg-gray-800 border-b border-gray-700 sticky top-0 z-50">
-			<div className="container mx-auto px-4 py-4 flex items-center justify-between">
-				<h2 className="text-xl font-bold">📈 NPM Trends</h2>
+		<AppBar
+			position="sticky"
+			sx={{
+				bgcolor: 'background.paper',
+				borderBottom: 1,
+				borderColor: 'divider',
+			}}
+		>
+			<Toolbar>
+				<Typography
+					variant="h6"
+					component="h2"
+					sx={{ flexGrow: 1, fontWeight: 'bold' }}
+				>
+					📈 NPM Trends
+				</Typography>
 
-				<div className="flex items-center gap-4">
-					<Link 
-						to="/tags" 
-						className="text-gray-300 hover:text-white transition-colors"
+				<Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+					<Link
+						to="/tags"
+						style={{
+							color: 'inherit',
+							textDecoration: 'none',
+							transition: 'opacity 0.2s',
+						}}
+						onMouseEnter={(e) =>
+							(e.currentTarget.style.opacity = '1')
+						}
+						onMouseLeave={(e) =>
+							(e.currentTarget.style.opacity = '0.7')
+						}
 					>
 						タグ一覧
 					</Link>
 					<SignedIn>
-						<button
-							className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg font-medium transition-colors"
-							onClick={onCreateClick}
-						>
-							プリセット作成
-						</button>
-						<UserButton afterSignOutUrl="/" />
+						<Button onClick={onCreateClick}>プリセット作成</Button>
+						<UserButton />
 					</SignedIn>
 					<SignedOut>
 						<SignInButton mode="redirect">
-							<button className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg font-medium transition-colors">
-								ログイン
-							</button>
+							<Button>ログイン</Button>
 						</SignInButton>
 					</SignedOut>
-				</div>
-			</div>
-		</header>
+				</Box>
+			</Toolbar>
+		</AppBar>
 	);
 }

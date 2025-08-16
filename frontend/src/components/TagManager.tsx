@@ -119,23 +119,23 @@ function TagManager({ packageName, currentTags, onTagsUpdated, onClose }: TagMan
   ];
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold text-gray-900">
+    <div className="tag-manager-overlay">
+      <div className="tag-manager-modal">
+        <div className="tag-manager-header">
+          <h2 className="tag-manager-title">
             {packageName} のタグを編集
           </h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600"
+            className="close-button"
           >
             ✕
           </button>
         </div>
 
         {/* 新しいタグ作成 */}
-        <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-          <h3 className="text-lg font-medium mb-3">新しいタグを作成</h3>
+        <div className="new-tag-section">
+          <h3 className="section-title">新しいタグを作成</h3>
           <div className="space-y-3">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">

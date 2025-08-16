@@ -1,5 +1,8 @@
 import { useState } from 'react';
 import { useAuth } from '@clerk/clerk-react';
+import { Box, Typography, Button, TextField } from '@mui/material';
+import Tag from './ui/Tag';
+import Card from './ui/Card';
 
 interface CreatePresetFormProps {
 	onPresetCreated: () => void;
@@ -83,112 +86,117 @@ export default function CreatePresetForm({
 	};
 
 	return (
-		<div className="bg-gray-800 border border-gray-700 rounded-lg p-6 mb-8">
-			<div className="flex items-center justify-between mb-6">
-				<h3 className="text-xl font-semibold">
+		<Card sx={{ mb: 4 }}>
+			<Box
+				sx={{
+					display: 'flex',
+					justifyContent: 'space-between',
+					alignItems: 'center',
+					mb: 3,
+				}}
+			>
+				<Typography variant="h5" component="h3">
 					新しいプリセットを作成
-				</h3>
-				<button
-					className="text-gray-400 hover:text-white transition-colors"
+				</Typography>
+				<Button
+					variant="text"
+					size="small"
 					onClick={onCancel}
 					type="button"
 				>
 					✕
-				</button>
-			</div>
+				</Button>
+			</Box>
 
-			<form onSubmit={handleSubmit} className="space-y-4">
-				<div>
-					<label
-						htmlFor="title"
-						className="block text-sm font-medium mb-2"
-					>
-						プリセット名
-					</label>
-					<input
+			<form onSubmit={handleSubmit}>
+				<Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+					<TextField
 						id="title"
+						label="プリセット名"
 						type="text"
 						value={title}
 						onChange={(e) => setTitle(e.target.value)}
 						placeholder="React vs Vue vs Angular"
-						maxLength={100}
+						inputProps={{ maxLength: 100 }}
 						required
-						className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+						fullWidth
+						variant="outlined"
+						size="small"
 					/>
-				</div>
 
-				<div>
-					<label
-						htmlFor="package-input"
-						className="block text-sm font-medium mb-2"
-					>
-						パッケージ名
-					</label>
-					<div className="flex gap-2">
-						<input
-							id="package-input"
-							type="text"
-							value={packageInput}
-							onChange={(e) => setPackageInput(e.target.value)}
-							onKeyPress={handleKeyPress}
-							placeholder="react, vue, angular (カンマ区切りで複数入力可能)"
-							className="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-						/>
-						<button
-							type="button"
-							onClick={addPackage}
-							disabled={!packageInput.trim()}
-							className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 px-4 py-2 rounded-lg transition-colors"
-						>
-							追加
-						</button>
-					</div>
-				</div>
+					<Box>
+						<Box sx={{ display: 'flex', gap: 1 }}>
+							<TextField
+								id="package-input"
+								label="パッケージ名"
+								type="text"
+								value={packageInput}
+								onChange={(e) =>
+									setPackageInput(e.target.value)
+								}
+								onKeyPress={handleKeyPress}
+								placeholder="react, vue, angular (カンマ区切りで複数入力可能)"
+								sx={{ flexGrow: 1 }}
+								variant="outlined"
+								size="small"
+							/>
+							<Button
+								type="button"
+								onClick={addPackage}
+								disabled={!packageInput.trim()}
+								variant="contained"
+							>
+								追加
+							</Button>
+						</Box>
+					</Box>
 
-				{packages.length > 0 && (
-					<div>
-						<label className="block text-sm font-medium mb-2">
-							選択されたパッケージ ({packages.length}/10)
-						</label>
-						<div className="flex flex-wrap gap-2">
-							{packages.map((pkg) => (
-								<span
-									key={pkg}
-									className="bg-blue-600 text-white px-3 py-1 rounded-md text-sm flex items-center gap-2"
-								>
-									{pkg}
-									<button
-										type="button"
-										onClick={() => removePackage(pkg)}
-										className="hover:text-red-300 transition-colors"
+					{packages.length > 0 && (
+						<Box>
+							<Typography variant="body2" sx={{ mb: 1 }}>
+								選択されたパッケージ ({packages.length}/10)
+							</Typography>
+							<Box
+								sx={{
+									display: 'flex',
+									flexWrap: 'wrap',
+									gap: 1,
+								}}
+							>
+								{packages.map((pkg) => (
+									<Tag
+										key={pkg}
+										variant="removable"
+										onRemove={() => removePackage(pkg)}
 									>
-										✕
-									</button>
-								</span>
-							))}
-						</div>
-					</div>
-				)}
+										{pkg}
+									</Tag>
+								))}
+							</Box>
+						</Box>
+					)}
 
-				<div className="flex gap-3 pt-4">
-					<button
-						type="button"
-						onClick={onCancel}
-						className="bg-gray-600 hover:bg-gray-700 px-4 py-2 rounded-lg transition-colors"
-					>
-						キャンセル
-					</button>
-					<button
-						type="submit"
-						disabled={
-							loading || !title.trim() || packages.length < 2
-						}
-						className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 px-4 py-2 rounded-lg transition-colors flex-1"
-					>
-						{loading ? '作成中...' : 'プリセット作成'}
-					</button>
-				</div>
+					<Box sx={{ display: 'flex', gap: 2, pt: 2 }}>
+						<Button
+							type="button"
+							variant="outlined"
+							onClick={onCancel}
+						>
+							キャンセル
+						</Button>
+						<Button
+							type="submit"
+							variant="contained"
+							disabled={
+								loading || !title.trim() || packages.length < 2
+							}
+							sx={{ flexGrow: 1 }}
+						>
+							{loading ? '作成中...' : 'プリセット作成'}
+						</Button>
+					</Box>
+				</Box>
 			</form>
-		</div>
+		</Card>
 	);
 }

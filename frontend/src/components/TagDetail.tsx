@@ -4,6 +4,7 @@ import { Tag, Package } from '../types';
 import { Loading } from './assets/Loading';
 import { HomeLink } from './assets/HomeLink';
 import ExternalLink from './ui/ExternalLink';
+import { Button, Box, Typography } from '@mui/material';
 
 function TagDetail() {
 	const { tagId } = useParams<{ tagId: string }>();
@@ -86,75 +87,134 @@ function TagDetail() {
 
 	if (!tag) {
 		return (
-			<div className="min-h-screen bg-gray-50">
-				タグが見つかりません
+			<Box sx={{ minHeight: '100vh', bgcolor: 'grey.50', p: 2 }}>
+				<Typography>タグが見つかりません</Typography>
 				<HomeLink />
-			</div>
+			</Box>
 		);
 	}
 
 	const comparisonGroups = generateComparisonGroups(packages);
 
 	return (
-		<div className="min-h-screen bg-gray-50">
-			<div className="container mx-auto px-4 py-8">
-				<div className="mb-8">
+		<Box sx={{ minHeight: '100vh', bgcolor: 'grey.50' }}>
+			<Box sx={{ maxWidth: 1200, mx: 'auto', p: 3 }}>
+				<Box sx={{ mb: 4 }}>
 					<HomeLink />
 
-					<div className="flex items-center gap-4 mb-6">
-						<span
-							className="inline-flex items-center px-4 py-2 rounded-full text-lg font-medium text-white"
-							style={{ backgroundColor: tag.color }}
+					<Box
+						sx={{
+							display: 'flex',
+							alignItems: 'center',
+							gap: 2,
+							mb: 3,
+						}}
+					>
+						<Box
+							sx={{
+								display: 'inline-flex',
+								alignItems: 'center',
+								px: 2,
+								py: 1,
+								borderRadius: '50px',
+								color: 'white',
+								fontSize: '1.1rem',
+								fontWeight: 500,
+								backgroundColor: tag.color,
+							}}
 						>
 							{tag.name}
-						</span>
-						<div>
-							<h1 className="text-3xl font-bold text-gray-900">
+						</Box>
+						<Box>
+							<Typography
+								variant="h3"
+								component="h1"
+								sx={{ fontWeight: 'bold' }}
+							>
 								{tag.name} タグのパッケージ
-							</h1>
+							</Typography>
 							{tag.description && (
-								<p className="text-gray-600 mt-2">
+								<Typography
+									variant="body1"
+									color="text.secondary"
+									sx={{ mt: 1 }}
+								>
 									{tag.description}
-								</p>
+								</Typography>
 							)}
-						</div>
-					</div>
+						</Box>
+					</Box>
 
 					{packages.length > 0 && (
-						<div className="bg-white rounded-lg p-4 mb-6 shadow-sm border">
-							<h2 className="text-xl font-semibold mb-4 text-gray-900">
+						<Box
+							sx={{
+								bgcolor: 'white',
+								borderRadius: 2,
+								p: 2,
+								mb: 3,
+								boxShadow: 1,
+							}}
+						>
+							<Typography
+								variant="h5"
+								component="h2"
+								sx={{ mb: 2, fontWeight: 600 }}
+							>
 								NPM Trendsで比較
-							</h2>
-							<div className="space-y-3">
+							</Typography>
+							<Box
+								sx={{
+									display: 'flex',
+									flexDirection: 'column',
+									gap: 1.5,
+								}}
+							>
 								{comparisonGroups.map((group, index) => (
-									<div
+									<Box
 										key={index}
-										className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+										sx={{
+											display: 'flex',
+											alignItems: 'center',
+											justifyContent: 'space-between',
+											p: 1.5,
+											bgcolor: 'grey.50',
+											borderRadius: 1,
+										}}
 									>
-										<div>
-											<div className="font-medium text-gray-900">
+										<Box>
+											<Typography
+												variant="body1"
+												sx={{ fontWeight: 500 }}
+											>
 												グループ {index + 1}
 												{comparisonGroups.length > 1 &&
 													` (${group.length}パッケージ)`}
-											</div>
-											<div className="text-sm text-gray-600">
+											</Typography>
+											<Typography
+												variant="body2"
+												color="text.secondary"
+											>
 												{group
 													.map((pkg) => pkg.name)
 													.join(', ')}
-											</div>
-										</div>
-										<ExternalLink
+											</Typography>
+										</Box>
+										<Button
+											variant="contained"
+											component="a"
 											href={generateTrendUrl(
 												group.map((pkg) => pkg.name)
 											)}
-											className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+											target="_blank"
+											rel="noopener noreferrer"
+											sx={{ textDecoration: 'none' }}
 										>
 											比較する
-										</ExternalLink>
-									</div>
+										</Button>
+									</Box>
 								))}
 								{packages.length > 10 && (
-									<div className="text-center pt-2">
+									<Box sx={{ textAlign: 'center', pt: 1 }}>
 										<ExternalLink
 											href={generateTrendUrl(
 												packages
@@ -164,40 +224,54 @@ function TagDetail() {
 										>
 											人気上位10パッケージを比較
 										</ExternalLink>
-									</div>
+									</Box>
 								)}
-							</div>
-						</div>
+							</Box>
+						</Box>
 					)}
-				</div>
+				</Box>
 
 				{packages.length === 0 ? (
-					<div className="text-center text-gray-600">
-						<p className="text-lg mb-4">
+					<Box sx={{ textAlign: 'center', py: 4 }}>
+						<Typography variant="h6" sx={{ mb: 2 }}>
 							このタグが付いたパッケージが見つかりませんでした。
-						</p>
+						</Typography>
 						<Link
 							to="/"
-							className="text-blue-600 hover:text-blue-800 underline"
+							style={{
+								color: '#2563eb',
+								textDecoration: 'underline',
+							}}
 						>
 							他のタグを見る
 						</Link>
-					</div>
+					</Box>
 				) : (
-					<div>
-						<h2 className="text-2xl font-bold mb-4 text-gray-900">
+					<Box>
+						<Typography
+							variant="h4"
+							component="h2"
+							sx={{ mb: 2, fontWeight: 'bold' }}
+						>
 							パッケージ一覧 ({packages.length}件)
-						</h2>
-						<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+						</Typography>
+						<Box
+							sx={{
+								display: 'grid',
+								gap: 2,
+								gridTemplateColumns: {
+									xs: '1fr',
+									md: 'repeat(2, 1fr)',
+									lg: 'repeat(3, 1fr)',
+								},
+							}}
+						>
 							{packages.map((pkg) => (
-								<div
-									key={pkg.id}
-									className="bg-white rounded-lg p-4 shadow-sm border hover:shadow-md transition-shadow"
-								>
-									<div className="flex justify-between items-start mb-2">
+								<div key={pkg.id} className="package-card">
+									<div className="package-header">
 										<Link
 											to={`/packages/${pkg.name}`}
-											className="font-semibold text-gray-900 hover:text-blue-600 truncate"
+											className="package-name"
 										>
 											{pkg.name}
 										</Link>
@@ -205,25 +279,24 @@ function TagDetail() {
 											href={`https://npmtrends.com/${encodeURIComponent(
 												pkg.name
 											)}`}
-											className="text-blue-600 hover:text-blue-800 text-sm underline flex-shrink-0 ml-2"
+											className="trend-link"
 										>
 											トレンド
 										</ExternalLink>
 									</div>
 
 									{pkg.description && (
-										<p className="text-sm text-gray-600 mb-3 line-clamp-2">
+										<p className="package-description">
 											{pkg.description}
 										</p>
 									)}
 
 									{pkg.tags && pkg.tags.length > 0 && (
-										<div className="flex flex-wrap gap-1 mb-2">
+										<div>
 											{pkg.tags.slice(0, 3).map((tag) => (
 												<Link
 													key={tag.id}
 													to={`/tags/${tag.id}`}
-													className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium text-white hover:opacity-80"
 													style={{
 														backgroundColor:
 															tag.color,
@@ -233,14 +306,14 @@ function TagDetail() {
 												</Link>
 											))}
 											{pkg.tags.length > 3 && (
-												<span className="text-xs text-gray-400">
+												<span className="more-tags">
 													+{pkg.tags.length - 3}
 												</span>
 											)}
 										</div>
 									)}
 
-									<div className="flex justify-between items-center text-xs text-gray-500">
+									<div className="package-stats">
 										<span>
 											週間DL:
 											{pkg.weekly_downloads?.toLocaleString() ||
@@ -254,11 +327,11 @@ function TagDetail() {
 									</div>
 								</div>
 							))}
-						</div>
-					</div>
+						</Box>
+					</Box>
 				)}
-			</div>
-		</div>
+			</Box>
+		</Box>
 	);
 }
 
