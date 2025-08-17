@@ -29,6 +29,20 @@
       "when": 1755323641346,
       "tag": "0003_chemical_kate_bishop",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1755391195711,
+      "tag": "0004_wise_zemo",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1755391402804,
+      "tag": "0005_glossy_anthem",
+      "breakpoints": true
     }
   ]
 }

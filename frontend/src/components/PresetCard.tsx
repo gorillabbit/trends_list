@@ -24,7 +24,8 @@ export default function PresetCard({ preset, onLike }: PresetCardProps) {
 	};
 
 	const handleCardClick = () => {
-		window.open(preset.npmtrends_url, '_blank');
+		const npmtrendsUrl = `https://npmtrends.com/${packages.join('-vs-')}`;
+		window.open(npmtrendsUrl, '_blank');
 	};
 
 	const handlePackageClick = (e: React.MouseEvent, packageName: string) => {

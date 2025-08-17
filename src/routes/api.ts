@@ -147,14 +147,10 @@ apiRoutes.get('/presets', async (c) => {
           id: presets.id,
           title: presets.title,
           packages: presets.packages,
-          npmtrends_url: presets.npmtrendsUrl,
           likes_count: presets.likesCount,
-          created_at: presets.createdAt,
-          owner_name: users.name,
-          owner_avatar: users.avatarUrl
+          created_at: presets.createdAt
         })
         .from(presets)
-        .leftJoin(users, eq(presets.ownerId, users.id))
         .orderBy(desc(presets.likesCount), desc(presets.createdAt))
         .limit(limit)
         .offset(offset)
@@ -164,14 +160,10 @@ apiRoutes.get('/presets', async (c) => {
           id: presets.id,
           title: presets.title,
           packages: presets.packages,
-          npmtrends_url: presets.npmtrendsUrl,
           likes_count: presets.likesCount,
-          created_at: presets.createdAt,
-          owner_name: users.name,
-          owner_avatar: users.avatarUrl
+          created_at: presets.createdAt
         })
         .from(presets)
-        .leftJoin(users, eq(presets.ownerId, users.id))
         .orderBy(desc(presets.createdAt))
         .limit(limit)
         .offset(offset)
@@ -222,16 +214,13 @@ apiRoutes.post('/presets', async (c) => {
       return c.json({ error: '有効なパッケージ名を2つ以上選択してください' }, 400)
     }
 
-    const npmtrendsUrl = `https://npmtrends.com/${pkgs.join('-vs-')}`
     const db = getDB(c)
 
     // Ensure user exists in users table
     const existingUser = await db.select().from(users).where(eq(users.id, auth.userId)).limit(1)
     if (existingUser.length === 0) {
       await db.insert(users).values({
-        id: auth.userId,
-        name: null,
-        avatarUrl: null
+        id: auth.userId
       })
     }
 
@@ -240,7 +229,6 @@ apiRoutes.post('/presets', async (c) => {
       id: slug,
       title,
       packages: JSON.stringify(pkgs),
-      npmtrendsUrl,
       ownerId: auth.userId
     })
 
@@ -251,7 +239,6 @@ apiRoutes.post('/presets', async (c) => {
 
     return c.json({
       id: slug,
-      npmtrends_url: npmtrendsUrl,
       title,
       packages: pkgs
     })
@@ -286,9 +273,7 @@ apiRoutes.post('/presets/:slug/like', async (c) => {
     const existingUser = await db.select().from(users).where(eq(users.id, auth.userId)).limit(1)
     if (existingUser.length === 0) {
       await db.insert(users).values({
-        id: auth.userId,
-        name: null,
-        avatarUrl: null
+        id: auth.userId
       })
     }
 
@@ -498,14 +483,10 @@ apiRoutes.get('/packages/:packageName/presets', async (c) => {
         id: presets.id,
         title: presets.title,
         packages: presets.packages,
-        npmtrends_url: presets.npmtrendsUrl,
         likes_count: presets.likesCount,
-        created_at: presets.createdAt,
-        owner_name: users.name,
-        owner_avatar: users.avatarUrl
+        created_at: presets.createdAt
       })
       .from(presets)
-      .leftJoin(users, eq(presets.ownerId, users.id))
       .orderBy(desc(presets.likesCount), desc(presets.createdAt))
       .limit(limit)
       .offset(offset)

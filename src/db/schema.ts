@@ -3,8 +3,6 @@ import { sql } from 'drizzle-orm';
 
 export const users = sqliteTable('users', {
   id: text('id').primaryKey(),
-  name: text('name'),
-  avatarUrl: text('avatar_url'),
   createdAt: text('created_at').default(sql`(datetime('now'))`)
 });
 
@@ -12,7 +10,6 @@ export const presets = sqliteTable('presets', {
   id: text('id').primaryKey(),
   title: text('title').notNull(),
   packages: text('packages').notNull(),
-  npmtrendsUrl: text('npmtrends_url').notNull(),
   ownerId: text('owner_id').notNull().references(() => users.id),
   likesCount: integer('likes_count').default(0),
   createdAt: text('created_at').default(sql`(datetime('now'))`)
