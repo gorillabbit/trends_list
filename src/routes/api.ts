@@ -28,11 +28,6 @@ function getDB(c: Context<{ Bindings: Bindings, Variables: Variables }>): Drizzl
 
 // Add the Clerk middleware to all API routes
 apiRoutes.use('*', async (c, next) => {
-  console.log('CLERK_PUBLISHABLE_KEY:', c.env.CLERK_PUBLISHABLE_KEY)
-  console.log('CLERK_SECRET_KEY:', c.env.CLERK_SECRET_KEY)
-  console.log('Type of publishableKey:', typeof c.env.CLERK_PUBLISHABLE_KEY)
-  console.log('Type of secretKey:', typeof c.env.CLERK_SECRET_KEY)
-  
   return clerkMiddleware({
     publishableKey: c.env.CLERK_PUBLISHABLE_KEY,
     secretKey: c.env.CLERK_SECRET_KEY,
@@ -145,7 +140,7 @@ apiRoutes.get('/presets', async (c) => {
 
     const db = getDB(c)
     
-    let results
+    let results: string | any[]
     if (sort === 'likes') {
       results = await db
         .select({
@@ -389,6 +384,91 @@ apiRoutes.post('/verify-turnstile', async (c) => {
   }
 })
 
+// GET /api/packages/by-tags - Get packages by tag IDs (must be before :packageName routes)
+apiRoutes.get('/packages/by-tags', async (c) => {
+  try {
+    const url = new URL(c.req.url)
+    const tagIdsParam = url.searchParams.get('tagIds')
+    const excludeParam = url.searchParams.get('exclude')
+    const limit = parseInt(url.searchParams.get('limit') || '20')
+
+    if (!tagIdsParam) {
+      return c.json({ error: 'タグIDが必要です' }, 400)
+    }
+
+    const tagIds = tagIdsParam.split(',').filter(id => id.trim())
+    if (tagIds.length === 0) {
+      return c.json({ packages: [] })
+    }
+
+    const cacheKey = `packages:by-tags:${tagIdsParam}:${excludeParam || ''}:${limit}`
+    const cached = await c.env.KV.get(cacheKey)
+    if (cached) {
+      return c.json(JSON.parse(cached), 200, {
+        'Cache-Control': 'public, max-age=300'
+      })
+    }
+
+    const db = getDB(c)
+
+    // Get packages that have any of the specified tags
+    const results = await db
+      .selectDistinct({
+        id: packages.id,
+        name: packages.name,
+        description: packages.description,
+        weekly_downloads: packages.weeklyDownloads,
+        repository: packages.repository,
+        homepage: packages.homepage,
+        last_update: packages.lastUpdate,
+        created_at: packages.createdAt,
+      })
+      .from(packages)
+      .innerJoin(packageTags, eq(packages.id, packageTags.packageId))
+      .innerJoin(tags, eq(packageTags.tagId, tags.id))
+      .where(inArray(tags.id, tagIds))
+      .orderBy(desc(packages.weeklyDownloads))
+      .limit(limit)
+
+    // Filter out excluded package if specified
+    const filteredResults = excludeParam 
+      ? results.filter(pkg => pkg.id !== excludeParam)
+      : results
+
+    // Get tags for each package
+    const packagesWithTags = await Promise.all(
+      filteredResults.map(async (pkg) => {
+        const pkgTags = await db
+          .select({
+            id: tags.id,
+            name: tags.name,
+            description: tags.description,
+            color: tags.color,
+            created_at: tags.createdAt,
+          })
+          .from(tags)
+          .innerJoin(packageTags, eq(tags.id, packageTags.tagId))
+          .where(eq(packageTags.packageId, pkg.id))
+
+        return {
+          ...pkg,
+          tags: pkgTags
+        }
+      })
+    )
+
+    const response = { packages: packagesWithTags }
+    await c.env.KV.put(cacheKey, JSON.stringify(response), { expirationTtl: 300 })
+
+    return c.json(response, 200, {
+      'Cache-Control': 'public, max-age=300'
+    })
+  } catch (error) {
+    console.error('Failed to get packages by tags:', error)
+    return c.json({ error: 'タグによるパッケージ検索に失敗しました' }, 500)
+  }
+})
+
 // GET /api/packages/:packageName/presets - Get presets that use a specific package
 apiRoutes.get('/packages/:packageName/presets', async (c) => {
   try {
@@ -615,7 +695,7 @@ apiRoutes.post('/tags', async (c) => {
       return c.json({ error: 'このタグ名は既に存在します' }, 400)
     }
 
-    const tagId = `tag_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    const tagId = `tag_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`
 
     await db.insert(tags).values({
       id: tagId,
@@ -705,87 +785,3 @@ apiRoutes.put('/packages/:packageName/tags', async (c) => {
   }
 })
 
-// GET /api/packages/by-tags - Get packages by tag IDs
-apiRoutes.get('/packages/by-tags', async (c) => {
-  try {
-    const url = new URL(c.req.url)
-    const tagIdsParam = url.searchParams.get('tagIds')
-    const excludeParam = url.searchParams.get('exclude')
-    const limit = parseInt(url.searchParams.get('limit') || '20')
-
-    if (!tagIdsParam) {
-      return c.json({ error: 'タグIDが必要です' }, 400)
-    }
-
-    const tagIds = tagIdsParam.split(',').filter(id => id.trim())
-    if (tagIds.length === 0) {
-      return c.json({ packages: [] })
-    }
-
-    const cacheKey = `packages:by-tags:${tagIdsParam}:${excludeParam || ''}:${limit}`
-    const cached = await c.env.KV.get(cacheKey)
-    if (cached) {
-      return c.json(JSON.parse(cached), 200, {
-        'Cache-Control': 'public, max-age=300'
-      })
-    }
-
-    const db = getDB(c)
-
-    // Get packages that have any of the specified tags
-    const results = await db
-      .selectDistinct({
-        id: packages.id,
-        name: packages.name,
-        description: packages.description,
-        weekly_downloads: packages.weeklyDownloads,
-        repository: packages.repository,
-        homepage: packages.homepage,
-        last_update: packages.lastUpdate,
-        created_at: packages.createdAt,
-      })
-      .from(packages)
-      .innerJoin(packageTags, eq(packages.id, packageTags.packageId))
-      .innerJoin(tags, eq(packageTags.tagId, tags.id))
-      .where(inArray(tags.id, tagIds))
-      .orderBy(desc(packages.weeklyDownloads))
-      .limit(limit)
-
-    // Filter out excluded package if specified
-    const filteredResults = excludeParam 
-      ? results.filter(pkg => pkg.id !== excludeParam)
-      : results
-
-    // Get tags for each package
-    const packagesWithTags = await Promise.all(
-      filteredResults.map(async (pkg) => {
-        const pkgTags = await db
-          .select({
-            id: tags.id,
-            name: tags.name,
-            description: tags.description,
-            color: tags.color,
-            created_at: tags.createdAt,
-          })
-          .from(tags)
-          .innerJoin(packageTags, eq(tags.id, packageTags.tagId))
-          .where(eq(packageTags.packageId, pkg.id))
-
-        return {
-          ...pkg,
-          tags: pkgTags
-        }
-      })
-    )
-
-    const response = { packages: packagesWithTags }
-    await c.env.KV.put(cacheKey, JSON.stringify(response), { expirationTtl: 300 })
-
-    return c.json(response, 200, {
-      'Cache-Control': 'public, max-age=300'
-    })
-  } catch (error) {
-    console.error('Failed to get packages by tags:', error)
-    return c.json({ error: 'タグによるパッケージ検索に失敗しました' }, 500)
-  }
-})

@@ -5,6 +5,7 @@ import PresetList from './PresetList';
 import CreatePresetForm from './CreatePresetForm';
 import { Preset } from '../types';
 import { useAuth } from '@clerk/clerk-react';
+import { theme } from '../styles/theme';
 
 function Home() {
 	const [presets, setPresets] = useState<Preset[]>([]);
@@ -58,15 +59,18 @@ function Home() {
 	};
 
 	return (
-		<Box>
+		<>
 			<Header onCreateClick={() => setShowCreateForm(true)} />
 
-			<Container maxWidth="lg" sx={{ py: 4 }}>
+			<Container sx={{ py: 4 }}>
 				<Box sx={{ textAlign: 'center', mb: 6 }}>
-					<Typography variant="h2" component="h1" sx={{ mb: 2 }}>
+					<Typography variant="h2" fontWeight="bold">
 						NPM Trends Presets
 					</Typography>
-					<Typography variant="h6" color="text.secondary">
+					<Typography
+						variant="h6"
+						color={theme.colors.text.secondary}
+					>
 						お気に入りのNPMパッケージの組み合わせを保存・共有しよう
 					</Typography>
 				</Box>
@@ -80,7 +84,7 @@ function Home() {
 
 				<PresetList presets={presets} onLike={handleLike} />
 			</Container>
-		</Box>
+		</>
 	);
 }
 

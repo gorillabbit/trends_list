@@ -39,13 +39,6 @@ export default function CreatePresetForm({
 		setPackages(packages.filter((p) => p !== pkg));
 	};
 
-	const handleKeyPress = (e: React.KeyboardEvent) => {
-		if (e.key === 'Enter') {
-			e.preventDefault();
-			addPackage();
-		}
-	};
-
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 
@@ -95,60 +88,40 @@ export default function CreatePresetForm({
 					mb: 3,
 				}}
 			>
-				<Typography variant="h5" component="h3">
+				<Typography variant="h5">
 					新しいプリセットを作成
 				</Typography>
-				<Button
-					variant="text"
-					size="small"
-					onClick={onCancel}
-					type="button"
-				>
-					✕
-				</Button>
 			</Box>
 
 			<form onSubmit={handleSubmit}>
 				<Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
 					<TextField
-						id="title"
 						label="プリセット名"
-						type="text"
 						value={title}
 						onChange={(e) => setTitle(e.target.value)}
 						placeholder="React vs Vue vs Angular"
-						inputProps={{ maxLength: 100 }}
 						required
-						fullWidth
 						variant="outlined"
 						size="small"
 					/>
 
-					<Box>
-						<Box sx={{ display: 'flex', gap: 1 }}>
-							<TextField
-								id="package-input"
-								label="パッケージ名"
-								type="text"
-								value={packageInput}
-								onChange={(e) =>
-									setPackageInput(e.target.value)
-								}
-								onKeyPress={handleKeyPress}
-								placeholder="react, vue, angular (カンマ区切りで複数入力可能)"
-								sx={{ flexGrow: 1 }}
-								variant="outlined"
-								size="small"
-							/>
-							<Button
-								type="button"
-								onClick={addPackage}
-								disabled={!packageInput.trim()}
-								variant="contained"
-							>
-								追加
-							</Button>
-						</Box>
+					<Box sx={{ display: 'flex', gap: 1 }}>
+						<TextField
+							label="パッケージ名"
+							value={packageInput}
+							onChange={(e) => setPackageInput(e.target.value)}
+							placeholder="react, vue, angular (カンマ区切りで複数入力可能)"
+							sx={{ flexGrow: 1 }}
+							variant="outlined"
+							size="small"
+						/>
+						<Button
+							onClick={addPackage}
+							disabled={!packageInput.trim()}
+							variant="contained"
+						>
+							追加
+						</Button>
 					</Box>
 
 					{packages.length > 0 && (
@@ -177,15 +150,10 @@ export default function CreatePresetForm({
 					)}
 
 					<Box sx={{ display: 'flex', gap: 2, pt: 2 }}>
-						<Button
-							type="button"
-							variant="outlined"
-							onClick={onCancel}
-						>
+						<Button variant="contained" onClick={onCancel}>
 							キャンセル
 						</Button>
 						<Button
-							type="submit"
 							variant="contained"
 							disabled={
 								loading || !title.trim() || packages.length < 2

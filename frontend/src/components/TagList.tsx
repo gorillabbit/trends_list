@@ -1,11 +1,15 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Tag } from '../types';
-import { Loading } from './assets/Loading';
-import { HomeLink } from './assets/HomeLink';
+import { Box, Container, Typography, Grid } from '@mui/material';
+import { Tag as TagType } from '../types';
+import { Loading } from './ui/Loading';
+import { HomeLink } from './ui/HomeLink';
+import Tag from './ui/Tag';
+import Card from './ui/Card';
+import { theme } from '../styles/theme';
 
 function TagList() {
-	const [tags, setTags] = useState<Tag[]>([]);
+	const [tags, setTags] = useState<TagType[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string>('');
 
@@ -40,102 +44,71 @@ function TagList() {
 	}
 
 	return (
-		<div className="min-h-screen bg-gray-50">
-			<div className="container mx-auto px-4 py-8">
-				<div className="mb-8">
-					<HomeLink />;
-					<h1 className="text-3xl font-bold mb-4 text-gray-900">
-						タグ一覧
-					</h1>
-					<p className="text-gray-600">
-						パッケージのカテゴリやタグを探して、関連するパッケージのトレンドを確認できます。
-					</p>
-				</div>
+		<Container sx={{ py: 4 }}>
+			<Box sx={{ mb: 4 }}>
+				<HomeLink />
+				<Typography
+					variant="h3"
+					fontWeight="bold"
+					color={theme.colors.text.primary}
+				>
+					タグ一覧
+				</Typography>
+				<Typography variant="h6" color={theme.colors.text.secondary}>
+					パッケージのカテゴリやタグを探して、関連するパッケージのトレンドを確認できます。
+				</Typography>
+			</Box>
 
-				{tags.length === 0 ? (
-					<div className="text-center text-gray-600">
+			{tags.length === 0 ? (
+				<Box sx={{ textAlign: 'center', py: 4 }}>
+					<Typography
+						variant="h6"
+						color={theme.colors.text.secondary}
+					>
 						タグが見つかりませんでした。
-						<HomeLink />;
-					</div>
-				) : (
-					<div>
-						<div className="mb-6">
-							<h2 className="text-xl font-semibold mb-3 text-gray-900">
-								すべてのタグ ({tags.length}件)
-							</h2>
-						</div>
+					</Typography>
+					<HomeLink />
+				</Box>
+			) : (
+				<>
+					<Typography
+						variant="h5"
+						color={theme.colors.text.primary}
+						sx={{ mb: 1 }}
+					>
+						すべてのタグ ({tags.length}件)
+					</Typography>
 
-						<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-							{tags.map((tag) => (
-								<Link
-									key={tag.id}
-									to={`/tags/${tag.id}`}
-									className="bg-white rounded-lg p-6 shadow-sm border hover:shadow-md transition-shadow group"
+					<Grid container spacing={1}>
+						{tags.map((tag) => (
+							<Link
+								to={`/tags/${tag.id}`}
+								style={{ textDecoration: 'none' }}
+								key={tag.id}
+							>
+								<Card
+									variant="hover"
+									sx={{
+										height: '100%',
+									}}
 								>
-									<div className="flex items-center gap-3 mb-3">
-										<span
-											className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium text-white"
-											style={{
-												backgroundColor: tag.color,
-											}}
-										>
-											{tag.name}
-										</span>
-									</div>
-
-									{tag.description && (
-										<p className="text-sm text-gray-600 mb-3 line-clamp-3">
-											{tag.description}
-										</p>
-									)}
-
-									<div className="text-xs text-gray-500">
-										作成日:{' '}
-										{new Date(
-											tag.created_at
-										).toLocaleDateString('ja-JP')}
-									</div>
-
-									<div className="mt-3 text-sm text-blue-600 group-hover:text-blue-800">
-										パッケージを見る →
-									</div>
-								</Link>
-							))}
-						</div>
-
-						<div className="mt-8 text-center">
-							<div className="bg-white rounded-lg p-6 shadow-sm border">
-								<h3 className="text-lg font-semibold mb-2 text-gray-900">
-									タグを活用しよう
-								</h3>
-								<p className="text-gray-600 mb-4">
-									各タグページでは、そのカテゴリに属する全パッケージのNPM
-									Trendsでの比較や、
-									個別パッケージの詳細情報を確認できます。
-								</p>
-								<div className="flex flex-wrap gap-2 justify-center">
-									<span className="text-sm text-gray-500">
-										例:
-									</span>
-									{tags.slice(0, 5).map((tag) => (
-										<Link
-											key={tag.id}
-											to={`/tags/${tag.id}`}
-											className="inline-flex items-center px-2 py-1 rounded text-xs font-medium text-white hover:opacity-80"
-											style={{
-												backgroundColor: tag.color,
-											}}
-										>
-											{tag.name}
-										</Link>
-									))}
-								</div>
-							</div>
-						</div>
-					</div>
-				)}
-			</div>
-		</div>
+									<Tag color={tag.color} sx={{ mb: 1 }}>
+										{tag.name}
+									</Tag>
+									<Typography
+										variant="body2"
+										color={theme.colors.text.secondary}
+										sx={{ ml: 1 }}
+									>
+										{tag.description}
+									</Typography>
+								</Card>
+							</Link>
+						))}
+					</Grid>
+				</>
+			)}
+		</Container>
 	);
 }
 

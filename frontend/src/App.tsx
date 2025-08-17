@@ -1,13 +1,13 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { Box } from '@mui/material';
 import Home from './components/Home';
 import PackagePresets from './components/PackagePresets';
 import TagList from './components/TagList';
 import TagDetail from './components/TagDetail';
+import { Box } from '@mui/material';
 
 function App() {
 	return (
-		<Box sx={{ minHeight: '100vh' }}>
+		<Box>
 			<Router
 				future={{
 					v7_startTransition: true,

@@ -1,6 +1,7 @@
 import { Preset } from '../types';
-import { Box, Typography } from '@mui/material';
+import { Box, Grid, Typography } from '@mui/material';
 import PresetCard from './PresetCard';
+import { theme } from '../styles/theme';
 
 interface PresetListProps {
 	presets: Preset[];
@@ -11,10 +12,14 @@ export default function PresetList({ presets, onLike }: PresetListProps) {
 	if (presets.length === 0) {
 		return (
 			<Box sx={{ textAlign: 'center', py: 6 }}>
-				<Typography variant="h5" component="h3" sx={{ mb: 1 }}>
+				<Typography
+					variant="h5"
+					color={theme.colors.text.primary}
+					sx={{ mb: 1 }}
+				>
 					まだプリセットがありません
 				</Typography>
-				<Typography variant="body1" color="text.secondary">
+				<Typography variant="body1" color={theme.colors.text.secondary}>
 					最初のプリセットを作成してみませんか？
 				</Typography>
 			</Box>
@@ -23,19 +28,15 @@ export default function PresetList({ presets, onLike }: PresetListProps) {
 
 	return (
 		<Box>
-			<Typography variant="h4">人気のプリセット</Typography>
-			<Box
-				sx={{
-					display: 'grid',
-					gridTemplateColumns: {
-						xs: '1fr',
-						sm: 'repeat(2, 1fr)',
-						md: 'repeat(3, 1fr)',
-						lg: 'repeat(4, 1fr)',
-					},
-					gap: 1,
-				}}
+			<Typography
+				variant="h4"
+				color={theme.colors.text.primary}
+				fontWeight="bold"
+				sx={{ mb: 3 }}
 			>
+				人気のプリセット
+			</Typography>
+			<Grid container spacing={2}>
 				{presets.map((preset) => (
 					<PresetCard
 						key={preset.id}
@@ -43,7 +44,7 @@ export default function PresetList({ presets, onLike }: PresetListProps) {
 						onLike={onLike}
 					/>
 				))}
-			</Box>
+			</Grid>
 		</Box>
 	);
 }

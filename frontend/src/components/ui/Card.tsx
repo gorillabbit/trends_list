@@ -1,5 +1,6 @@
 import { Card as MUICard, CardProps as MUICardProps } from '@mui/material';
-import { ReactNode } from 'react';
+import { ReactNode, useState } from 'react';
+import { theme } from '../../styles/theme';
 
 interface CardProps extends Omit<MUICardProps, 'variant'> {
 	variant?: 'default' | 'hover' | 'clickable';
@@ -12,39 +13,43 @@ export default function Card({
 	sx,
 	...props
 }: CardProps) {
-	const getHoverEffects = () => {
-		switch (variant) {
-			case 'hover':
-				return {
-					'&:hover': {
-						boxShadow: 4,
-						borderColor: 'primary.main',
-					},
-				};
-			case 'clickable':
-				return {
-					cursor: 'pointer',
-					transition: 'all 0.2s ease-in-out',
-					'&:hover': {
-						boxShadow: 4,
-						borderColor: 'primary.main',
-						transform: 'scale(1.02)',
-					},
-				};
-			default:
-				return {};
+	const [isHovered, setIsHovered] = useState(false);
+
+	const getCardSx = () => {
+		const baseSx = {
+			p: 3,
+			backgroundColor: theme.colors.background.card,
+			border: `1px solid ${theme.colors.border.secondary}`,
+			borderRadius: theme.borderRadius.lg,
+			transition: theme.transition,
+		};
+
+		if (variant === 'clickable') {
+			Object.assign(baseSx, {
+				cursor: 'pointer',
+			});
 		}
+
+		if (isHovered && (variant === 'hover' || variant === 'clickable')) {
+			Object.assign(baseSx, {
+				borderColor: theme.colors.border.accent,
+				boxShadow: '0 4px 20px rgba(59, 130, 246, 0.1)',
+			});
+			if (variant === 'clickable') {
+				Object.assign(baseSx, {
+					transform: 'scale(1.02)',
+				});
+			}
+		}
+
+		return { ...baseSx, ...sx };
 	};
 
 	return (
 		<MUICard
-			sx={{
-				p: 3,
-				border: 1,
-				borderColor: 'divider',
-				...getHoverEffects(),
-				...sx,
-			}}
+			sx={getCardSx()}
+			onMouseEnter={() => setIsHovered(true)}
+			onMouseLeave={() => setIsHovered(false)}
 			{...props}
 		>
 			{children}

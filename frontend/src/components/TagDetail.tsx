@@ -1,14 +1,17 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Tag, Package } from '../types';
-import { Loading } from './assets/Loading';
-import { HomeLink } from './assets/HomeLink';
+import { Box, Container, Typography, Button, Grid } from '@mui/material';
+import { Tag as TagType, Package } from '../types';
+import { Loading } from './ui/Loading';
+import { HomeLink } from './ui/HomeLink';
 import ExternalLink from './ui/ExternalLink';
-import { Button, Box, Typography } from '@mui/material';
+import Tag from './ui/Tag';
+import Card from './ui/Card';
+import { theme } from '../styles/theme';
 
 function TagDetail() {
 	const { tagId } = useParams<{ tagId: string }>();
-	const [tag, setTag] = useState<Tag | null>(null);
+	const [tag, setTag] = useState<TagType | null>(null);
 	const [packages, setPackages] = useState<Package[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string>('');
@@ -24,7 +27,7 @@ function TagDetail() {
 		try {
 			const res = await fetch(`/api/tags/${encodeURIComponent(tagId!)}`);
 			if (res.ok) {
-				const data: Tag = await res.json();
+				const data: TagType = await res.json();
 				setTag(data);
 			} else {
 				setError('タグが見つかりません');
@@ -59,9 +62,14 @@ function TagDetail() {
 
 	const generateTrendUrl = (packageNames: string[]) => {
 		if (packageNames.length === 0) return '';
+		if (packageNames.length === 1) {
+			return `https://npmtrends.com/${encodeURIComponent(
+				packageNames[0]
+			)}`;
+		}
 		const packageParams = packageNames
 			.map((pkg) => encodeURIComponent(pkg))
-			.join(',');
+			.join('-vs-');
 		return `https://npmtrends.com/${packageParams}`;
 	};
 
@@ -81,84 +89,48 @@ function TagDetail() {
 		return <Loading />;
 	}
 
-	if (error) {
+	if (error || !tag) {
 		return <HomeLink />;
-	}
-
-	if (!tag) {
-		return (
-			<Box sx={{ minHeight: '100vh', bgcolor: 'grey.50', p: 2 }}>
-				<Typography>タグが見つかりません</Typography>
-				<HomeLink />
-			</Box>
-		);
 	}
 
 	const comparisonGroups = generateComparisonGroups(packages);
 
 	return (
-		<Box sx={{ minHeight: '100vh', bgcolor: 'grey.50' }}>
-			<Box sx={{ maxWidth: 1200, mx: 'auto', p: 3 }}>
-				<Box sx={{ mb: 4 }}>
+		<Box
+			bgcolor={theme.colors.background.primary}
+			sx={{ minHeight: '100vh' }}
+		>
+			<Container maxWidth="lg" sx={{ py: 4 }}>
+				<Box
+					display="flex"
+					flexDirection="column"
+					gap={0.5}
+					sx={{ mb: 4 }}
+				>
 					<HomeLink />
 
-					<Box
-						sx={{
-							display: 'flex',
-							alignItems: 'center',
-							gap: 2,
-							mb: 3,
-						}}
+					<Typography
+						variant="h3"
+						fontWeight="bold"
+						color={theme.colors.text.primary}
 					>
-						<Box
-							sx={{
-								display: 'inline-flex',
-								alignItems: 'center',
-								px: 2,
-								py: 1,
-								borderRadius: '50px',
-								color: 'white',
-								fontSize: '1.1rem',
-								fontWeight: 500,
-								backgroundColor: tag.color,
-							}}
-						>
-							{tag.name}
-						</Box>
-						<Box>
-							<Typography
-								variant="h3"
-								component="h1"
-								sx={{ fontWeight: 'bold' }}
-							>
-								{tag.name} タグのパッケージ
-							</Typography>
-							{tag.description && (
-								<Typography
-									variant="body1"
-									color="text.secondary"
-									sx={{ mt: 1 }}
-								>
-									{tag.description}
-								</Typography>
-							)}
-						</Box>
-					</Box>
+						<Tag color={tag.color}>{tag.name}</Tag>
+						のパッケージ
+					</Typography>
+					<Typography
+						variant="body1"
+						color={theme.colors.text.secondary}
+					>
+						{tag.description}
+					</Typography>
 
 					{packages.length > 0 && (
-						<Box
-							sx={{
-								bgcolor: 'white',
-								borderRadius: 2,
-								p: 2,
-								mb: 3,
-								boxShadow: 1,
-							}}
-						>
+						<Card sx={{ mb: 4 }}>
 							<Typography
 								variant="h5"
-								component="h2"
-								sx={{ mb: 2, fontWeight: 600 }}
+								fontWeight="600"
+								color={theme.colors.text.primary}
+								sx={{ mb: 3 }}
 							>
 								NPM Trendsで比較
 							</Typography>
@@ -166,7 +138,7 @@ function TagDetail() {
 								sx={{
 									display: 'flex',
 									flexDirection: 'column',
-									gap: 1.5,
+									gap: 2,
 								}}
 							>
 								{comparisonGroups.map((group, index) => (
@@ -176,45 +148,39 @@ function TagDetail() {
 											display: 'flex',
 											alignItems: 'center',
 											justifyContent: 'space-between',
-											p: 1.5,
-											bgcolor: 'grey.50',
-											borderRadius: 1,
+											p: 2,
+											backgroundColor:
+												theme.colors.background
+													.secondary,
+											borderRadius: theme.borderRadius.md,
 										}}
 									>
-										<Box>
-											<Typography
-												variant="body1"
-												sx={{ fontWeight: 500 }}
-											>
-												グループ {index + 1}
-												{comparisonGroups.length > 1 &&
-													` (${group.length}パッケージ)`}
-											</Typography>
-											<Typography
-												variant="body2"
-												color="text.secondary"
-											>
-												{group
-													.map((pkg) => pkg.name)
-													.join(', ')}
-											</Typography>
-										</Box>
+										<Typography variant="body1">
+											グループ {index + 1}
+											{comparisonGroups.length > 1 &&
+												` (${group.length}パッケージ)`}
+										</Typography>
+										<Typography
+											variant="body2"
+											color={theme.colors.text.secondary}
+										>
+											{group
+												.map((pkg) => pkg.name)
+												.join(', ')}
+										</Typography>
+
 										<Button
 											variant="contained"
-											component="a"
 											href={generateTrendUrl(
 												group.map((pkg) => pkg.name)
 											)}
-											target="_blank"
-											rel="noopener noreferrer"
-											sx={{ textDecoration: 'none' }}
 										>
 											比較する
 										</Button>
 									</Box>
 								))}
 								{packages.length > 10 && (
-									<Box sx={{ textAlign: 'center', pt: 1 }}>
+									<Box sx={{ textAlign: 'center', pt: 2 }}>
 										<ExternalLink
 											href={generateTrendUrl(
 												packages
@@ -227,19 +193,23 @@ function TagDetail() {
 									</Box>
 								)}
 							</Box>
-						</Box>
+						</Card>
 					)}
 				</Box>
 
 				{packages.length === 0 ? (
-					<Box sx={{ textAlign: 'center', py: 4 }}>
-						<Typography variant="h6" sx={{ mb: 2 }}>
+					<Box sx={{ textAlign: 'center' }}>
+						<Typography
+							variant="h5"
+							color={theme.colors.text.secondary}
+							sx={{ mb: 2 }}
+						>
 							このタグが付いたパッケージが見つかりませんでした。
 						</Typography>
 						<Link
-							to="/"
+							to="/tags"
 							style={{
-								color: '#2563eb',
+								color: theme.colors.accent.primary,
 								textDecoration: 'underline',
 							}}
 						>
@@ -247,31 +217,37 @@ function TagDetail() {
 						</Link>
 					</Box>
 				) : (
-					<Box>
+					<>
 						<Typography
 							variant="h4"
-							component="h2"
-							sx={{ mb: 2, fontWeight: 'bold' }}
+							color={theme.colors.text.primary}
+							sx={{ mb: 3 }}
 						>
 							パッケージ一覧 ({packages.length}件)
 						</Typography>
-						<Box
-							sx={{
-								display: 'grid',
-								gap: 2,
-								gridTemplateColumns: {
-									xs: '1fr',
-									md: 'repeat(2, 1fr)',
-									lg: 'repeat(3, 1fr)',
-								},
-							}}
-						>
+						<Grid container spacing={3}>
 							{packages.map((pkg) => (
-								<div key={pkg.id} className="package-card">
-									<div className="package-header">
+								<Card
+									variant="hover"
+									sx={{ height: '100%' }}
+									key={pkg.id}
+								>
+									<Box
+										sx={{
+											display: 'flex',
+											justifyContent: 'space-between',
+											alignItems: 'start',
+										}}
+									>
 										<Link
 											to={`/packages/${pkg.name}`}
-											className="package-name"
+											style={{
+												color: theme.colors.text
+													.primary,
+												textDecoration: 'none',
+												fontWeight: '600',
+												fontSize: '1.125rem',
+											}}
 										>
 											{pkg.name}
 										</Link>
@@ -279,58 +255,76 @@ function TagDetail() {
 											href={`https://npmtrends.com/${encodeURIComponent(
 												pkg.name
 											)}`}
-											className="trend-link"
 										>
 											トレンド
 										</ExternalLink>
-									</div>
+									</Box>
 
-									{pkg.description && (
-										<p className="package-description">
-											{pkg.description}
-										</p>
-									)}
+									<Typography
+										variant="body2"
+										color={theme.colors.text.secondary}
+									>
+										{pkg.description}
+									</Typography>
 
 									{pkg.tags && pkg.tags.length > 0 && (
-										<div>
+										<Box
+											sx={{
+												display: 'flex',
+												flexWrap: 'wrap',
+												gap: 0.5,
+												mb: 1,
+											}}
+										>
 											{pkg.tags.slice(0, 3).map((tag) => (
 												<Link
 													key={tag.id}
 													to={`/tags/${tag.id}`}
-													style={{
-														backgroundColor:
-															tag.color,
-													}}
 												>
-													{tag.name}
+													<Tag color={tag.color}>
+														{tag.name}
+													</Tag>
 												</Link>
 											))}
 											{pkg.tags.length > 3 && (
-												<span className="more-tags">
+												<Typography
+													color={
+														theme.colors.text.muted
+													}
+												>
 													+{pkg.tags.length - 3}
-												</span>
+												</Typography>
 											)}
-										</div>
+										</Box>
 									)}
 
-									<div className="package-stats">
-										<span>
+									<Box
+										sx={{
+											display: 'flex',
+											justifyContent: 'space-between',
+											alignItems: 'center',
+										}}
+									>
+										<Typography
+											variant="caption"
+											color={theme.colors.text.secondary}
+										>
 											週間DL:
 											{pkg.weekly_downloads?.toLocaleString() ||
 												'不明'}
-										</span>
+										</Typography>
 										{pkg.homepage && (
 											<ExternalLink href={pkg.homepage}>
 												HP
 											</ExternalLink>
 										)}
-									</div>
-								</div>
+									</Box>
+								</Card>
 							))}
-						</Box>
-					</Box>
+						</Grid>
+					</>
 				)}
-			</Box>
+			</Container>
 		</Box>
 	);
 }

@@ -14,6 +14,7 @@ export default function Tag({
 	color,
 	onRemove,
 	children,
+	sx,
 	...props
 }: TagProps) {
 	return (
@@ -21,18 +22,9 @@ export default function Tag({
 			label={children}
 			variant="filled"
 			size="small"
+			sx={{ bgcolor: color }}
 			deleteIcon={variant === 'removable' ? <Close /> : undefined}
 			onDelete={variant === 'removable' ? onRemove : undefined}
-			sx={{
-				backgroundColor: color || 'primary.main',
-				color: 'white',
-				'& .MuiChip-deleteIcon': {
-					color: 'rgba(255, 255, 255, 0.7)',
-					'&:hover': {
-						color: 'white',
-					},
-				},
-			}}
 			{...props}
 		/>
 	);

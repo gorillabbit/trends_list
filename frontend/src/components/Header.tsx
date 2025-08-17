@@ -5,58 +5,49 @@ import {
 	UserButton,
 } from '@clerk/clerk-react';
 import { Link } from 'react-router-dom';
-import { AppBar, Toolbar, Typography, Box, Button } from '@mui/material';
+import { AppBar, Toolbar, Typography, Button } from '@mui/material';
+import { theme } from '../styles/theme';
+import { useState } from 'react';
 
 interface HeaderProps {
 	onCreateClick: () => void;
 }
 
 export default function Header({ onCreateClick }: HeaderProps) {
+	const [isTagsHovered, setIsTagsHovered] = useState(false);
+
 	return (
-		<AppBar
-			position="sticky"
-			sx={{
-				bgcolor: 'background.paper',
-				borderBottom: 1,
-				borderColor: 'divider',
-			}}
-		>
-			<Toolbar>
-				<Typography
-					variant="h6"
-					component="h2"
-					sx={{ flexGrow: 1, fontWeight: 'bold' }}
-				>
+		<AppBar position="sticky">
+			<Toolbar sx={{ gap: 2 }}>
+				<Typography fontWeight="bold" flexGrow={1}>
 					📈 NPM Trends
 				</Typography>
 
-				<Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-					<Link
-						to="/tags"
-						style={{
-							color: 'inherit',
-							textDecoration: 'none',
-							transition: 'opacity 0.2s',
-						}}
-						onMouseEnter={(e) =>
-							(e.currentTarget.style.opacity = '1')
-						}
-						onMouseLeave={(e) =>
-							(e.currentTarget.style.opacity = '0.7')
-						}
-					>
-						タグ一覧
-					</Link>
-					<SignedIn>
-						<Button onClick={onCreateClick}>プリセット作成</Button>
-						<UserButton />
-					</SignedIn>
-					<SignedOut>
-						<SignInButton mode="redirect">
-							<Button>ログイン</Button>
-						</SignInButton>
-					</SignedOut>
-				</Box>
+				<Link
+					to="/tags"
+					style={{
+						color: isTagsHovered
+							? theme.colors.accent.hover
+							: theme.colors.text.secondary,
+						textDecoration: 'none',
+						transition: theme.transition,
+					}}
+					onMouseEnter={() => setIsTagsHovered(true)}
+					onMouseLeave={() => setIsTagsHovered(false)}
+				>
+					タグ一覧
+				</Link>
+				<SignedIn>
+					<Button onClick={onCreateClick} variant="contained">
+						プリセット作成
+					</Button>
+					<UserButton />
+				</SignedIn>
+				<SignedOut>
+					<SignInButton mode="redirect">
+						<Button variant="contained">ログイン</Button>
+					</SignInButton>
+				</SignedOut>
 			</Toolbar>
 		</AppBar>
 	);

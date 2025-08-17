@@ -1,12 +1,21 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Preset, PackagePresetsResponse, Package, Tag } from '../types';
+import { Box, Container, Typography, Button, Grid } from '@mui/material';
+import {
+	Preset,
+	PackagePresetsResponse,
+	Package,
+	Tag as TagType,
+} from '../types';
 import PresetCard from './PresetCard';
 import TagManager from './TagManager';
 import { useAuth } from '@clerk/clerk-react';
-import { HomeLink } from './assets/HomeLink';
-import { Loading } from './assets/Loading';
+import { HomeLink } from './ui/HomeLink';
+import { Loading } from './ui/Loading';
 import ExternalLink from './ui/ExternalLink';
+import Tag from './ui/Tag';
+import Card from './ui/Card';
+import { theme } from '../styles/theme';
 
 function PackagePresets() {
 	const { packageName } = useParams<{ packageName: string }>();
@@ -94,7 +103,7 @@ function PackagePresets() {
 		return `https://npmtrends.com/${packageParams}`;
 	};
 
-	const handleTagsUpdated = (newTags: Tag[]) => {
+	const handleTagsUpdated = (newTags: TagType[]) => {
 		if (packageInfo) {
 			setPackageInfo({
 				...packageInfo,
@@ -145,199 +154,264 @@ function PackagePresets() {
 	}
 
 	return (
-		<div className="package-presets-container">
-			<div className="container mx-auto px-4 py-8">
-				<div className="mb-8">
-					<HomeLink />
+		<Container sx={{ py: 4 }}>
+			<Box sx={{ mb: 4 }}>
+				<HomeLink />
 
-					<h1 className="text-3xl font-bold mb-4 text-gray-900">
-						{packageName} を使用しているプリセット
-					</h1>
+				<Typography
+					variant="h3"
+					color={theme.colors.text.primary}
+					fontWeight="bold"
+					sx={{ mb: 3 }}
+				>
+					{packageName} を使用しているプリセット
+				</Typography>
 
-					{packageInfo && (
-						<div className="bg-white rounded-lg p-4 mb-6 shadow-sm border">
-							<div className="flex justify-between items-start mb-2">
-								<h2 className="text-xl font-semibold text-gray-900">
-									{packageInfo.name}
-								</h2>
-								{isSignedIn && (
-									<button
-										onClick={() => setShowTagManager(true)}
-										className="text-blue-600 hover:text-blue-800 text-sm underline flex-shrink-0 ml-2"
-									>
-										タグを編集
-									</button>
-								)}
-							</div>
-							{packageInfo.description && (
-								<p className="text-gray-600 mb-3">
-									{packageInfo.description}
-								</p>
+				{packageInfo && (
+					<Card sx={{ gap: 1 }}>
+						<Box
+							sx={{
+								display: 'flex',
+								justifyContent: 'space-between',
+							}}
+						>
+							<Typography
+								variant="h5"
+								color={theme.colors.text.primary}
+							>
+								{packageInfo.name}
+							</Typography>
+							{isSignedIn && (
+								<Button
+									onClick={() => setShowTagManager(true)}
+									variant="outlined"
+								>
+									タグを編集
+								</Button>
 							)}
+						</Box>
 
-							<div className="mb-3">
-								<div className="flex flex-wrap gap-2 items-center">
-									{packageInfo.tags &&
-									packageInfo.tags.length > 0 ? (
-										packageInfo.tags.map((tag) => (
-											<Link
-												key={tag.id}
-												to={`/tags/${tag.id}`}
-												className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-white hover:opacity-80 transition-opacity"
-												style={{
-													backgroundColor: tag.color,
-												}}
+						<Typography
+							variant="body1"
+							color={theme.colors.text.secondary}
+							sx={{ mb: 2 }}
+						>
+							{packageInfo.description}
+						</Typography>
+
+						<Box sx={{ mb: 2 }}>
+							<Box
+								sx={{
+									display: 'flex',
+									flexWrap: 'wrap',
+									gap: 1,
+								}}
+							>
+								{packageInfo.tags &&
+								packageInfo.tags.length > 0 ? (
+									packageInfo.tags.map((tag) => (
+										<Link
+											key={tag.id}
+											to={`/tags/${tag.id}`}
+										>
+											<Tag
+												color={tag.color}
 												title={tag.description}
 											>
 												{tag.name}
-											</Link>
-										))
-									) : (
-										<span className="text-sm text-gray-500 italic">
-											タグが設定されていません
-										</span>
-									)}
-								</div>
-							</div>
-
-							<div className="flex flex-wrap gap-4 text-sm text-gray-500">
-								<span>
-									週間ダウンロード数:
-									{packageInfo.weekly_downloads?.toLocaleString() ||
-										'不明'}
-								</span>
-								{packageInfo.homepage && (
-									<ExternalLink href={packageInfo.homepage}>
-										ホームページ
-									</ExternalLink>
-								)}
-								{packageInfo.repository && (
-									<ExternalLink href={packageInfo.repository}>
-										リポジトリ
-									</ExternalLink>
-								)}
-							</div>
-						</div>
-					)}
-				</div>
-
-				{relatedPackages.length > 0 && (
-					<div className="mb-8">
-						<h2 className="text-2xl font-bold mb-4 text-gray-900">
-							同じタグのパッケージトレンド
-						</h2>
-						<div className="bg-white rounded-lg p-4 shadow-sm border">
-							<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-								{relatedPackages.slice(0, 9).map((pkg) => (
-									<div
-										key={pkg.id}
-										className="border rounded-lg p-3 hover:shadow-md transition-shadow"
+											</Tag>
+										</Link>
+									))
+								) : (
+									<Typography
+										variant="body2"
+										color={theme.colors.text.muted}
 									>
-										<div className="flex justify-between items-start mb-2">
-											<h3 className="font-semibold text-gray-900 truncate">
-												{pkg.name}
-											</h3>
-											<ExternalLink 
-												href={generateTrendUrl([
-													packageName!,
-													pkg.name,
-												])}
-												className="text-blue-600 hover:text-blue-800 text-sm underline flex-shrink-0 ml-2"
-											>
-												比較
-											</ExternalLink>
-										</div>
-										{pkg.description && (
-											<p className="text-sm text-gray-600 mb-2 line-clamp-2">
-												{pkg.description}
-											</p>
-										)}
-										{pkg.tags && pkg.tags.length > 0 && (
-											<div className="flex flex-wrap gap-1 mb-2">
-												{pkg.tags
-													.slice(0, 3)
-													.map((tag) => (
-														<Link
-															key={tag.id}
-															to={`/tags/${tag.id}`}
-															className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium text-white hover:opacity-80 transition-opacity"
-															style={{
-																backgroundColor:
-																	tag.color,
-															}}
-														>
-															{tag.name}
-														</Link>
-													))}
-												{pkg.tags.length > 3 && (
-													<span className="text-xs text-gray-400">
-														+{pkg.tags.length - 3}
-													</span>
-												)}
-											</div>
-										)}
-										<div className="text-xs text-gray-500">
-											週間DL:{' '}
-											{pkg.weekly_downloads?.toLocaleString() ||
-												'不明'}
-										</div>
-									</div>
-								))}
-							</div>
-							{relatedPackages.length > 9 && (
-								<div className="mt-4 text-center">
-									<ExternalLink
-										href={generateTrendUrl([
-											packageName!,
-											...relatedPackages
-												.slice(9, 20)
-												.map((p) => p.name),
-										])}
-									>
-										さらに多くのパッケージと比較
-									</ExternalLink>
-								</div>
-							)}
-						</div>
-					</div>
-				)}
+										タグが設定されていません
+									</Typography>
+								)}
+							</Box>
+						</Box>
 
-				{presets.length === 0 ? (
-					<div className="text-center text-gray-600">
-						<p className="text-lg mb-4">
-							{packageName}
-							を使用しているプリセットが見つかりませんでした。
-						</p>
-						<Link
-							to="/"
-							className="text-blue-600 hover:text-blue-800 underline"
+						<Box
+							sx={{
+								display: 'flex',
+								flexWrap: 'wrap',
+								gap: 2,
+								color: theme.colors.text.secondary,
+							}}
 						>
-							他のプリセットを見る
-						</Link>
-					</div>
-				) : (
-					<div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-						{presets.map((preset) => (
-							<PresetCard
-								key={preset.id}
-								preset={preset}
-								onLike={handleLike}
-							/>
-						))}
-					</div>
+							<Typography variant="body2">
+								週間ダウンロード数:
+								{packageInfo.weekly_downloads?.toLocaleString() ||
+									'不明'}
+							</Typography>
+							{packageInfo.homepage && (
+								<ExternalLink href={packageInfo.homepage}>
+									ホームページ
+								</ExternalLink>
+							)}
+							{packageInfo.repository && (
+								<ExternalLink href={packageInfo.repository}>
+									リポジトリ
+								</ExternalLink>
+							)}
+						</Box>
+					</Card>
 				)}
+			</Box>
 
-				{/* タグ管理モーダル */}
-				{showTagManager && packageInfo && (
-					<TagManager
-						packageName={packageName!}
-						currentTags={packageInfo.tags || []}
-						onTagsUpdated={handleTagsUpdated}
-						onClose={() => setShowTagManager(false)}
-					/>
-				)}
-			</div>
-		</div>
+			{relatedPackages.length > 0 && (
+				<Box sx={{ mb: 4 }}>
+					<Typography
+						variant="h4"
+						color={theme.colors.text.primary}
+						fontWeight="bold"
+						sx={{ mb: 3 }}
+					>
+						同じタグのパッケージトレンド
+					</Typography>
+					<Card>
+						<Grid container spacing={2}>
+							{relatedPackages.slice(0, 9).map((pkg) => (
+								<Card
+									key={pkg.id}
+									variant="hover"
+									sx={{ height: '100%' }}
+								>
+									<Box
+										sx={{
+											display: 'flex',
+											justifyContent: 'space-between',
+											alignItems: 'start',
+											mb: 2,
+										}}
+									>
+										<Typography
+											variant="h6"
+											color={theme.colors.text.primary}
+										>
+											{pkg.name}
+										</Typography>
+										<ExternalLink
+											href={generateTrendUrl([
+												packageName!,
+												pkg.name,
+											])}
+										>
+											比較
+										</ExternalLink>
+									</Box>
+
+									<Typography
+										variant="body2"
+										color={theme.colors.text.secondary}
+										sx={{ mb: 2 }}
+									>
+										{pkg.description}
+									</Typography>
+
+									{pkg.tags && pkg.tags.length > 0 && (
+										<Box
+											sx={{
+												display: 'flex',
+												flexWrap: 'wrap',
+												gap: 0.5,
+											}}
+										>
+											{pkg.tags.slice(0, 3).map((tag) => (
+												<Link
+													key={tag.id}
+													to={`/tags/${tag.id}`}
+												>
+													<Tag color={tag.color}>
+														{tag.name}
+													</Tag>
+												</Link>
+											))}
+											{pkg.tags.length > 3 && (
+												<Typography
+													variant="caption"
+													color={
+														theme.colors.text.muted
+													}
+												>
+													+{pkg.tags.length - 3}
+												</Typography>
+											)}
+										</Box>
+									)}
+
+									<Typography
+										variant="caption"
+										color={theme.colors.text.secondary}
+									>
+										週間DL:
+										{pkg.weekly_downloads?.toLocaleString() ||
+											'不明'}
+									</Typography>
+								</Card>
+							))}
+						</Grid>
+
+						{relatedPackages.length > 9 && (
+							<Box sx={{ mt: 3, textAlign: 'center' }}>
+								<ExternalLink
+									href={generateTrendUrl([
+										packageName!,
+										...relatedPackages
+											.slice(9, 20)
+											.map((p) => p.name),
+									])}
+								>
+									さらに多くのパッケージと比較
+								</ExternalLink>
+							</Box>
+						)}
+					</Card>
+				</Box>
+			)}
+
+			{presets.length === 0 ? (
+				<Box sx={{ textAlign: 'center', py: 4 }}>
+					<Typography
+						variant="h5"
+						color={theme.colors.text.secondary}
+						sx={{ mb: 2 }}
+					>
+						{packageName}
+						を使用しているプリセットが見つかりませんでした。
+					</Typography>
+					<Link
+						to="/"
+						style={{
+							color: theme.colors.accent.primary,
+						}}
+					>
+						他のプリセットを見る
+					</Link>
+				</Box>
+			) : (
+				<Grid container spacing={2}>
+					{presets.map((preset) => (
+						<PresetCard
+							key={preset.id}
+							preset={preset}
+							onLike={handleLike}
+						/>
+					))}
+				</Grid>
+			)}
+
+			{showTagManager && packageInfo && (
+				<TagManager
+					packageName={packageName!}
+					currentTags={packageInfo.tags || []}
+					onTagsUpdated={handleTagsUpdated}
+					onClose={() => setShowTagManager(false)}
+				/>
+			)}
+		</Container>
 	);
 }
 
