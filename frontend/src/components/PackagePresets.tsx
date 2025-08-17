@@ -184,7 +184,7 @@ function PackagePresets() {
 							{isSignedIn && (
 								<Button
 									onClick={() => setShowTagManager(true)}
-									variant="outlined"
+									variant="contained"
 								>
 									タグを編集
 								</Button>

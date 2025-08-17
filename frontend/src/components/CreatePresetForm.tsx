@@ -154,6 +154,7 @@ export default function CreatePresetForm({
 							キャンセル
 						</Button>
 						<Button
+							type="submit"
 							variant="contained"
 							disabled={
 								loading || !title.trim() || packages.length < 2

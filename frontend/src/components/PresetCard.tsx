@@ -48,7 +48,7 @@ export default function PresetCard({ preset, onLike }: PresetCardProps) {
 				{formatDate(preset.created_at)}
 			</Typography>
 
-			<Box gap={1} mb={2} sx={{ display: 'flex', flexWrap: 'wrap' }}>
+			<Box gap={1} mb={2} display="flex" flexWrap="wrap">
 				{packages.map((pkg: string, index: number) => (
 					<Tag
 						key={index}
@@ -63,7 +63,6 @@ export default function PresetCard({ preset, onLike }: PresetCardProps) {
 			<Button
 				variant="outlined"
 				size="small"
-				color="info"
 				onClick={handleLike}
 				startIcon={<Favorite />}
 			>
