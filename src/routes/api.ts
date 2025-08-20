@@ -63,13 +63,89 @@ async function clearAllPresetCaches(kv: KVNamespace, userId?: string): Promise<v
   await Promise.all(promises);
 }
 
-// Clerkの認証情報を必須とするためのヘルパー
+// 共通エラーレスポンス関数
+function errorResponse(c: Context, message: string, status: 400 | 401 | 404 | 500 | 503 = 500) {
+  return c.json({ error: message }, status);
+}
+
+function successResponse(c: Context, data: object, status: 200 | 201 = 200, headers: Record<string, string> = {}) {
+  return c.json(data, status, headers);
+}
+
+// 認証関連のヘルパー関数群
 function requireAuth(c: Context<{ Bindings: Bindings, Variables: Variables }>) {
   const auth = getAuth(c);
   if (!auth?.userId) {
     throw new Error('Authentication required');
   }
   return auth;
+}
+
+async function ensureUserExists(db: DrizzleDB, userId: string) {
+  const existingUser = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+  if (existingUser.length === 0) {
+    await db.insert(users).values({ id: userId });
+  }
+}
+
+// エラーハンドリング関数
+function handleError(error: unknown, c: Context, defaultMessage: string) {
+  console.error('API Error:', error);
+  if (error instanceof Error && error.message === 'Authentication required') {
+    return errorResponse(c, 'ログインが必要です', 401);
+  }
+  return errorResponse(c, defaultMessage, 500);
+}
+
+// キャッシュ操作の共通化
+async function getCachedResponse(kv: KVNamespace, key: string) {
+  const cached = await kv.get(key);
+  return cached ? JSON.parse(cached) : null;
+}
+
+async function setCachedResponse(kv: KVNamespace, key: string, data: object, ttl: number = 300) {
+  await kv.put(key, JSON.stringify(data), { expirationTtl: ttl });
+}
+
+function getCacheHeaders(maxAge: number = 300) {
+  return { 'Cache-Control': `public, max-age=${maxAge}` };
+}
+
+// パッケージタグ取得の共通化
+async function getPackageTags(db: DrizzleDB, packageId: string) {
+  return await db
+    .select({
+      id: tags.id,
+      name: tags.name,
+      description: tags.description,
+      color: tags.color,
+      created_at: tags.createdAt,
+    })
+    .from(tags)
+    .innerJoin(packageTags, eq(tags.id, packageTags.tagId))
+    .where(eq(packageTags.packageId, packageId))
+    .catch(() => []);
+}
+
+// ページネーション用のパラメータ取得
+function getPaginationParams(url: URL) {
+  const page = parseInt(url.searchParams.get('page') || '1');
+  const sort = url.searchParams.get('sort') || 'likes';
+  const limit = 20;
+  const offset = (page - 1) * limit;
+  return { page, sort, limit, offset };
+}
+
+// NPM APIからのパッケージ情報型定義
+interface NpmPackageInfo {
+  name?: string;
+  description?: string;
+  repository?: string | { url: string };
+  homepage?: string;
+}
+
+interface NpmDownloadStats {
+  downloads?: number;
 }
 
 // Fetch package info from npm API
@@ -79,12 +155,12 @@ async function fetchPackageInfo(packageName: string) {
     if (!response.ok) {
       return null;
     }
-    const data = await response.json() as any;
+    const data = await response.json() as NpmPackageInfo;
     
     return {
       name: data.name || packageName,
       description: data.description || '',
-      repository: data.repository?.url || data.repository || '',
+      repository: typeof data.repository === 'string' ? data.repository : data.repository?.url || '',
       homepage: data.homepage || '',
     };
   } catch (error) {
@@ -100,7 +176,7 @@ async function fetchPackageDownloads(packageName: string) {
     if (!response.ok) {
       return 0;
     }
-    const data = await response.json() as any;
+    const data = await response.json() as NpmDownloadStats;
     return data.downloads || 0;
   } catch (error) {
     console.error(`Failed to fetch download stats for ${packageName}:`, error);
@@ -131,9 +207,9 @@ async function ensurePackageExists(db: DrizzleDB, packageName: string) {
 apiRoutes.get('/me', (c) => {
   const auth = getAuth(c);
   if (!auth?.userId) {
-    return c.json({ error: "Unauthorized" }, 401);
+    return errorResponse(c, "Unauthorized", 401);
   }
-  return c.json({
+  return successResponse(c, {
     authenticated: true,
     userId: auth.userId,
   });
@@ -144,10 +220,7 @@ apiRoutes.get('/me', (c) => {
 apiRoutes.get('/presets', async (c) => {
   try {
     const url = new URL(c.req.url)
-    const sort = url.searchParams.get('sort') || 'likes'
-    const page = parseInt(url.searchParams.get('page') || '1')
-    const limit = 20
-    const offset = (page - 1) * limit
+    const { page, sort, limit, offset } = getPaginationParams(url);
 
     // 認証情報を取得（任意）
     const auth = getAuth(c);
@@ -158,11 +231,9 @@ apiRoutes.get('/presets', async (c) => {
       ? `presets:list:${sort}:${page}:user:${userId}`
       : `presets:list:${sort}:${page}`;
 
-    const cached = await c.env.KV.get(cacheKey)
+    const cached = await getCachedResponse(c.env.KV, cacheKey);
     if (cached) {
-      return c.json(JSON.parse(cached), 200, {
-        'Cache-Control': 'public, max-age=300'
-      })
+      return successResponse(c, cached, 200, getCacheHeaders());
     }
 
     const db = getDB(c)
@@ -219,14 +290,11 @@ apiRoutes.get('/presets', async (c) => {
       hasMore: results.length === limit
     }
 
-    await c.env.KV.put(cacheKey, JSON.stringify(response), { expirationTtl: 300 })
+    await setCachedResponse(c.env.KV, cacheKey, response);
 
-    return c.json(response, 200, {
-      'Cache-Control': 'public, max-age=300'
-    })
+    return successResponse(c, response, 200, getCacheHeaders());
   } catch (error) {
-    console.error('Failed to get presets:', error)
-    return c.json({ error: 'プリセットの取得に失敗しました' }, 500)
+    return handleError(error, c, 'プリセットの取得に失敗しました');
   }
 })
 
@@ -238,13 +306,13 @@ apiRoutes.post('/presets', async (c) => {
     const { title, packages } = body
 
     if (!title || !Array.isArray(packages) || packages.length < 2) {
-      return c.json({ error: 'タイトルと2つ以上のパッケージが必要です' }, 400)
+      return errorResponse(c, 'タイトルと2つ以上のパッケージが必要です', 400);
     }
     if (title.length > 100) {
-      return c.json({ error: 'タイトルは100文字以内で入力してください' }, 400)
+      return errorResponse(c, 'タイトルは100文字以内で入力してください', 400);
     }
     if (packages.length > 10) {
-      return c.json({ error: 'パッケージは10個まで選択できます' }, 400)
+      return errorResponse(c, 'パッケージは10個まで選択できます', 400);
     }
 
     let slug = slugify(title)
@@ -255,18 +323,13 @@ apiRoutes.post('/presets', async (c) => {
       .filter((p: string) => p.match(/^[a-zA-Z0-9\-_@./]+$/))
 
     if (pkgs.length < 2) {
-      return c.json({ error: '有効なパッケージ名を2つ以上選択してください' }, 400)
+      return errorResponse(c, '有効なパッケージ名を2つ以上選択してください', 400);
     }
 
     const db = getDB(c)
 
     // Ensure user exists in users table
-    const existingUser = await db.select().from(users).where(eq(users.id, auth.userId)).limit(1)
-    if (existingUser.length === 0) {
-      await db.insert(users).values({
-        id: auth.userId
-      })
-    }
+    await ensureUserExists(db, auth.userId);
 
     // Insert preset
     await db.insert(presets).values({
@@ -279,17 +342,13 @@ apiRoutes.post('/presets', async (c) => {
     // 包括的なキャッシュクリア（ユーザー固有のキャッシュも含む）
     await clearAllPresetCaches(c.env.KV, auth.userId)
 
-    return c.json({
+    return successResponse(c, {
       id: slug,
       title,
       packages: pkgs
-    })
+    });
   } catch (error) {
-    console.error('Failed to create preset:', error)
-    if (error instanceof Error && error.message === 'Authentication required') {
-      return c.json({ error: 'ログインが必要です' }, 401)
-    }
-    return c.json({ error: 'プリセットの作成に失敗しました' }, 500)
+    return handleError(error, c, 'プリセットの作成に失敗しました');
   }
 })
 
@@ -300,7 +359,7 @@ apiRoutes.post('/presets/:slug/like', async (c) => {
     const slug = c.req.param('slug')
 
     if (!slug) {
-      return c.json({ error: 'プリセットが見つかりません' }, 404)
+      return errorResponse(c, 'プリセットが見つかりません', 404);
     }
 
     const db = getDB(c)
@@ -308,16 +367,11 @@ apiRoutes.post('/presets/:slug/like', async (c) => {
     // Check if preset exists
     const preset = await db.select().from(presets).where(eq(presets.id, slug)).limit(1)
     if (preset.length === 0) {
-      return c.json({ error: 'プリセットが見つかりません' }, 404)
+      return errorResponse(c, 'プリセットが見つかりません', 404);
     }
 
     // Ensure user exists in users table
-    const existingUser = await db.select().from(users).where(eq(users.id, auth.userId)).limit(1)
-    if (existingUser.length === 0) {
-      await db.insert(users).values({
-        id: auth.userId
-      })
-    }
+    await ensureUserExists(db, auth.userId);
 
     // Check if already liked
     const existingLike = await db.select().from(likes)
@@ -357,16 +411,12 @@ apiRoutes.post('/presets/:slug/like', async (c) => {
       .where(eq(presets.id, slug))
       .limit(1)
 
-    return c.json({
+    return successResponse(c, {
       liked: !isLiked,
       likes_count: updatedPreset[0]?.likesCount || 0
-    })
+    });
   } catch (error) {
-    console.error('Failed to toggle like:', error)
-    if (error instanceof Error && error.message === 'Authentication required') {
-      return c.json({ error: 'ログインが必要です' }, 401)
-    }
-    return c.json({ error: 'いいねの処理に失敗しました' }, 500)
+    return handleError(error, c, 'いいねの処理に失敗しました');
   }
 })
 
@@ -377,13 +427,13 @@ apiRoutes.post('/verify-turnstile', async (c) => {
     const { token } = body
 
     if (!token) {
-      return c.json({ success: false, error: 'Turnstileトークンが必要です' }, 400)
+      return errorResponse(c, 'Turnstileトークンが必要です', 400);
     }
 
     const secret = c.env.TURNSTILE_SECRET_KEY
     if (!secret) {
       console.error('TURNSTILE_SECRET_KEY is not configured')
-      return c.json({ success: false, error: 'サーバー設定エラー' }, 500)
+      return errorResponse(c, 'サーバー設定エラー', 500);
     }
 
     const formData = new URLSearchParams({ secret, response: token })
@@ -395,20 +445,19 @@ apiRoutes.post('/verify-turnstile', async (c) => {
 
     if (!resp.ok) {
       console.error('Turnstile API response error:', resp.status)
-      return c.json({ success: false, error: 'Turnstile検証サービスが利用できません' }, 503)
+      return errorResponse(c, 'Turnstile検証サービスが利用できません', 503);
     }
 
     const data = await resp.json() as { success: boolean; 'error-codes'?: string[] }
     
     if (data.success) {
-      return c.json({ success: true, message: '検証に成功しました' })
+      return successResponse(c, { success: true, message: '検証に成功しました' });
     } else {
       console.log('Turnstile verification failed:', data['error-codes'])
-      return c.json({ success: false, error: '検証に失敗しました', errorCodes: data['error-codes'] }, 400)
+      return errorResponse(c, '検証に失敗しました', 400);
     }
   } catch (error) {
-    console.error('Turnstile verification error:', error)
-    return c.json({ success: false, error: 'Turnstile検証処理でエラーが発生しました' }, 500)
+    return handleError(error, c, 'Turnstile検証処理でエラーが発生しました');
   }
 })
 
@@ -421,11 +470,9 @@ apiRoutes.get('/packages', async (c) => {
     const offset = (page - 1) * limit
 
     const cacheKey = `packages:list:${page}:${limit}`
-    const cached = await c.env.KV.get(cacheKey)
+    const cached = await getCachedResponse(c.env.KV, cacheKey);
     if (cached) {
-      return c.json(JSON.parse(cached), 200, {
-        'Cache-Control': 'public, max-age=300'
-      })
+      return successResponse(c, cached, 200, getCacheHeaders());
     }
 
     const db = getDB(c)
@@ -450,19 +497,7 @@ apiRoutes.get('/packages', async (c) => {
     // Get tags for each package
     const packagesWithTags = await Promise.all(
       results.map(async (pkg) => {
-        const pkgTags = await db
-          .select({
-            id: tags.id,
-            name: tags.name,
-            description: tags.description,
-            color: tags.color,
-            created_at: tags.createdAt,
-          })
-          .from(tags)
-          .innerJoin(packageTags, eq(tags.id, packageTags.tagId))
-          .where(eq(packageTags.packageId, pkg.id))
-          .catch(() => []) // Return empty array if tags query fails
-
+        const pkgTags = await getPackageTags(db, pkg.id);
         return {
           ...pkg,
           tags: pkgTags
@@ -476,14 +511,11 @@ apiRoutes.get('/packages', async (c) => {
       hasMore: results.length === limit
     }
 
-    await c.env.KV.put(cacheKey, JSON.stringify(response), { expirationTtl: 300 })
+    await setCachedResponse(c.env.KV, cacheKey, response);
 
-    return c.json(response, 200, {
-      'Cache-Control': 'public, max-age=300'
-    })
+    return successResponse(c, response, 200, getCacheHeaders());
   } catch (error) {
-    console.error('Failed to get packages:', error)
-    return c.json({ error: 'パッケージの取得に失敗しました' }, 500)
+    return handleError(error, c, 'パッケージの取得に失敗しました');
   }
 })
 
@@ -496,20 +528,18 @@ apiRoutes.get('/packages/by-tags', async (c) => {
     const limit = parseInt(url.searchParams.get('limit') || '50')
 
     if (!tagIdsParam) {
-      return c.json({ error: 'タグIDが必要です' }, 400)
+      return errorResponse(c, 'タグIDが必要です', 400);
     }
 
     const tagIds = tagIdsParam.split(',').filter(id => id.trim())
     if (tagIds.length === 0) {
-      return c.json({ packages: [] })
+      return successResponse(c, { packages: [] });
     }
 
     const cacheKey = `packages:by-tags:${tagIdsParam}:${excludeParam || ''}:${limit}`
-    const cached = await c.env.KV.get(cacheKey)
+    const cached = await getCachedResponse(c.env.KV, cacheKey);
     if (cached) {
-      return c.json(JSON.parse(cached), 200, {
-        'Cache-Control': 'public, max-age=300'
-      })
+      return successResponse(c, cached, 200, getCacheHeaders());
     }
 
     const db = getDB(c)
@@ -541,18 +571,7 @@ apiRoutes.get('/packages/by-tags', async (c) => {
     // Get tags for each package
     const packagesWithTags = await Promise.all(
       filteredResults.map(async (pkg) => {
-        const pkgTags = await db
-          .select({
-            id: tags.id,
-            name: tags.name,
-            description: tags.description,
-            color: tags.color,
-            created_at: tags.createdAt,
-          })
-          .from(tags)
-          .innerJoin(packageTags, eq(tags.id, packageTags.tagId))
-          .where(eq(packageTags.packageId, pkg.id))
-
+        const pkgTags = await getPackageTags(db, pkg.id);
         return {
           ...pkg,
           tags: pkgTags
@@ -561,14 +580,11 @@ apiRoutes.get('/packages/by-tags', async (c) => {
     )
 
     const response = { packages: packagesWithTags }
-    await c.env.KV.put(cacheKey, JSON.stringify(response), { expirationTtl: 300 })
+    await setCachedResponse(c.env.KV, cacheKey, response);
 
-    return c.json(response, 200, {
-      'Cache-Control': 'public, max-age=300'
-    })
+    return successResponse(c, response, 200, getCacheHeaders());
   } catch (error) {
-    console.error('Failed to get packages by tags:', error)
-    return c.json({ error: 'タグによるパッケージ検索に失敗しました' }, 500)
+    return handleError(error, c, 'タグによるパッケージ検索に失敗しました');
   }
 })
 
@@ -577,20 +593,16 @@ apiRoutes.get('/packages/:packageName/presets', async (c) => {
   try {
     const packageName = decodeURIComponent(c.req.param('packageName'))
     const url = new URL(c.req.url)
-    const page = parseInt(url.searchParams.get('page') || '1')
-    const limit = 20
-    const offset = (page - 1) * limit
+    const { page, limit, offset } = getPaginationParams(url);
 
     if (!packageName) {
-      return c.json({ error: 'パッケージ名が必要です' }, 400)
+      return errorResponse(c, 'パッケージ名が必要です', 400);
     }
 
     const cacheKey = `package:${packageName}:presets:${page}`
-    const cached = await c.env.KV.get(cacheKey)
+    const cached = await getCachedResponse(c.env.KV, cacheKey);
     if (cached) {
-      return c.json(JSON.parse(cached), 200, {
-        'Cache-Control': 'public, max-age=300'
-      })
+      return successResponse(c, cached, 200, getCacheHeaders());
     }
 
     const db = getDB(c)
@@ -626,14 +638,11 @@ apiRoutes.get('/packages/:packageName/presets', async (c) => {
       hasMore: filteredResults.length === limit
     }
 
-    await c.env.KV.put(cacheKey, JSON.stringify(response), { expirationTtl: 300 })
+    await setCachedResponse(c.env.KV, cacheKey, response);
 
-    return c.json(response, 200, {
-      'Cache-Control': 'public, max-age=300'
-    })
+    return successResponse(c, response, 200, getCacheHeaders());
   } catch (error) {
-    console.error('Failed to get package presets:', error)
-    return c.json({ error: 'パッケージのプリセット取得に失敗しました' }, 500)
+    return handleError(error, c, 'パッケージのプリセット取得に失敗しました');
   }
 })
 
@@ -643,15 +652,13 @@ apiRoutes.get('/packages/:packageName', async (c) => {
     const packageName = decodeURIComponent(c.req.param('packageName'))
     
     if (!packageName) {
-      return c.json({ error: 'パッケージ名が必要です' }, 400)
+      return errorResponse(c, 'パッケージ名が必要です', 400);
     }
 
     const cacheKey = `package:${packageName}:details`
-    const cached = await c.env.KV.get(cacheKey)
+    const cached = await getCachedResponse(c.env.KV, cacheKey);
     if (cached) {
-      return c.json(JSON.parse(cached), 200, {
-        'Cache-Control': 'public, max-age=3600'
-      })
+      return successResponse(c, cached, 200, getCacheHeaders(3600));
     }
 
     const db = getDB(c)
@@ -666,38 +673,21 @@ apiRoutes.get('/packages/:packageName', async (c) => {
     }
 
     if (packageData.length === 0) {
-      return c.json({ error: 'パッケージが見つかりません' }, 404)
+      return errorResponse(c, 'パッケージが見つかりません', 404);
     }
 
     // Get tags for this package
-    const pkgTags = await db
-      .select({
-        id: tags.id,
-        name: tags.name,
-        description: tags.description,
-        color: tags.color,
-        created_at: tags.createdAt,
-      })
-      .from(tags)
-      .innerJoin(packageTags, eq(tags.id, packageTags.tagId))
-      .where(eq(packageTags.packageId, packageName))
-      .catch((error) => {
-        console.error('Failed to fetch package tags:', error);
-        return []; // Return empty array if tags query fails
-      })
+    const pkgTags = await getPackageTags(db, packageName);
 
     const response = {
       ...packageData[0],
       tags: pkgTags
     }
-    await c.env.KV.put(cacheKey, JSON.stringify(response), { expirationTtl: 3600 })
+    await setCachedResponse(c.env.KV, cacheKey, response, 3600);
 
-    return c.json(response, 200, {
-      'Cache-Control': 'public, max-age=3600'
-    })
+    return successResponse(c, response, 200, getCacheHeaders(3600));
   } catch (error) {
-    console.error('Failed to get package details:', error)
-    return c.json({ error: 'パッケージ詳細の取得に失敗しました' }, 500)
+    return handleError(error, c, 'パッケージ詳細の取得に失敗しました');
   }
 })
 
@@ -705,25 +695,20 @@ apiRoutes.get('/packages/:packageName', async (c) => {
 apiRoutes.get('/tags', async (c) => {
   try {
     const cacheKey = 'tags:all'
-    const cached = await c.env.KV.get(cacheKey)
+    const cached = await getCachedResponse(c.env.KV, cacheKey);
     if (cached) {
-      return c.json(JSON.parse(cached), 200, {
-        'Cache-Control': 'public, max-age=300'
-      })
+      return successResponse(c, cached, 200, getCacheHeaders());
     }
 
     const db = getDB(c)
     const results = await db.select().from(tags).orderBy(tags.name)
 
     const response = { tags: results }
-    await c.env.KV.put(cacheKey, JSON.stringify(response), { expirationTtl: 300 })
+    await setCachedResponse(c.env.KV, cacheKey, response);
 
-    return c.json(response, 200, {
-      'Cache-Control': 'public, max-age=300'
-    })
+    return successResponse(c, response, 200, getCacheHeaders());
   } catch (error) {
-    console.error('Failed to get tags:', error)
-    return c.json({ error: 'タグの取得に失敗しました' }, 500)
+    return handleError(error, c, 'タグの取得に失敗しました');
   }
 })
 
@@ -733,33 +718,28 @@ apiRoutes.get('/tags/:tagId', async (c) => {
     const tagId = c.req.param('tagId')
     
     if (!tagId) {
-      return c.json({ error: 'タグIDが必要です' }, 400)
+      return errorResponse(c, 'タグIDが必要です', 400);
     }
 
     const cacheKey = `tag:${tagId}:details`
-    const cached = await c.env.KV.get(cacheKey)
+    const cached = await getCachedResponse(c.env.KV, cacheKey);
     if (cached) {
-      return c.json(JSON.parse(cached), 200, {
-        'Cache-Control': 'public, max-age=300'
-      })
+      return successResponse(c, cached, 200, getCacheHeaders());
     }
 
     const db = getDB(c)
     const results = await db.select().from(tags).where(eq(tags.id, tagId)).limit(1)
 
     if (results.length === 0) {
-      return c.json({ error: 'タグが見つかりません' }, 404)
+      return errorResponse(c, 'タグが見つかりません', 404);
     }
 
     const response = results[0]
-    await c.env.KV.put(cacheKey, JSON.stringify(response), { expirationTtl: 300 })
+    await setCachedResponse(c.env.KV, cacheKey, response);
 
-    return c.json(response, 200, {
-      'Cache-Control': 'public, max-age=300'
-    })
+    return successResponse(c, response, 200, getCacheHeaders());
   } catch (error) {
-    console.error('Failed to get tag details:', error)
-    return c.json({ error: 'タグ詳細の取得に失敗しました' }, 500)
+    return handleError(error, c, 'タグ詳細の取得に失敗しました');
   }
 })
 
@@ -771,17 +751,17 @@ apiRoutes.post('/tags', async (c) => {
     const { name, description, color } = body
 
     if (!name || typeof name !== 'string' || name.trim().length === 0) {
-      return c.json({ error: 'タグ名が必要です' }, 400)
+      return errorResponse(c, 'タグ名が必要です', 400);
     }
 
     const trimmedName = name.trim()
     if (trimmedName.length > 50) {
-      return c.json({ error: 'タグ名は50文字以内で入力してください' }, 400)
+      return errorResponse(c, 'タグ名は50文字以内で入力してください', 400);
     }
 
     const trimmedDescription = description?.trim() || undefined
     if (trimmedDescription && trimmedDescription.length > 200) {
-      return c.json({ error: '説明は200文字以内で入力してください' }, 400)
+      return errorResponse(c, '説明は200文字以内で入力してください', 400);
     }
 
     const validColor = color && /^#[0-9A-Fa-f]{6}$/.test(color) ? color : '#3B82F6'
@@ -791,7 +771,7 @@ apiRoutes.post('/tags', async (c) => {
     // Check if tag already exists
     const existing = await db.select().from(tags).where(eq(tags.name, trimmedName)).limit(1)
     if (existing.length > 0) {
-      return c.json({ error: 'このタグ名は既に存在します' }, 400)
+      return errorResponse(c, 'このタグ名は既に存在します', 400);
     }
 
     const tagId = `tag_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`
@@ -814,13 +794,9 @@ apiRoutes.post('/tags', async (c) => {
       created_at: new Date().toISOString()
     }
 
-    return c.json(newTag)
+    return successResponse(c, newTag);
   } catch (error) {
-    console.error('Failed to create tag:', error)
-    if (error instanceof Error && error.message === 'Authentication required') {
-      return c.json({ error: 'ログインが必要です' }, 401)
-    }
-    return c.json({ error: 'タグの作成に失敗しました' }, 500)
+    return handleError(error, c, 'タグの作成に失敗しました');
   }
 })
 
@@ -833,11 +809,11 @@ apiRoutes.put('/packages/:packageName/tags', async (c) => {
     const { tagIds } = body
 
     if (!packageName) {
-      return c.json({ error: 'パッケージ名が必要です' }, 400)
+      return errorResponse(c, 'パッケージ名が必要です', 400);
     }
 
     if (!Array.isArray(tagIds)) {
-      return c.json({ error: 'タグIDの配列が必要です' }, 400)
+      return errorResponse(c, 'タグIDの配列が必要です', 400);
     }
 
     const db = getDB(c)
@@ -852,7 +828,7 @@ apiRoutes.put('/packages/:packageName/tags', async (c) => {
       const invalidTagIds = tagIds.filter(id => !existingTagIds.includes(id))
       
       if (invalidTagIds.length > 0) {
-        return c.json({ error: '無効なタグIDが含まれています' }, 400)
+        return errorResponse(c, '無効なタグIDが含まれています', 400);
       }
     }
 
@@ -874,13 +850,9 @@ apiRoutes.put('/packages/:packageName/tags', async (c) => {
       c.env.KV.delete(`package:${packageName}:presets:1`),
     ])
 
-    return c.json({ success: true })
+    return successResponse(c, { success: true });
   } catch (error) {
-    console.error('Failed to update package tags:', error)
-    if (error instanceof Error && error.message === 'Authentication required') {
-      return c.json({ error: 'ログインが必要です' }, 401)
-    }
-    return c.json({ error: 'パッケージタグの更新に失敗しました' }, 500)
+    return handleError(error, c, 'パッケージタグの更新に失敗しました');
   }
 })
 
