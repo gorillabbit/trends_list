@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import { Box, Container, Typography, Grid } from '@mui/material';
 import { Tag as TagType } from '../types';
 import { Loading } from './ui/Loading';
-import { HomeLink } from './ui/HomeLink';
 import Tag from './ui/Tag';
 import Card from './ui/Card';
 import { theme } from '../styles/theme';
@@ -40,13 +39,12 @@ function TagList() {
 	}
 
 	if (error) {
-		return <HomeLink />;
+		return;
 	}
 
 	return (
 		<Container sx={{ py: 4 }}>
 			<Box sx={{ mb: 4 }}>
-				<HomeLink />
 				<Typography
 					variant="h3"
 					fontWeight="bold"
@@ -67,7 +65,6 @@ function TagList() {
 					>
 						タグが見つかりませんでした。
 					</Typography>
-					<HomeLink />
 				</Box>
 			) : (
 				<>

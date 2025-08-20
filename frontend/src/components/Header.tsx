@@ -4,17 +4,30 @@ import {
 	SignedOut,
 	UserButton,
 } from '@clerk/clerk-react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { AppBar, Toolbar, Typography, Button } from '@mui/material';
 import { theme } from '../styles/theme';
-import { useState } from 'react';
 
 interface HeaderProps {
 	onCreateClick: () => void;
 }
 
 export default function Header({ onCreateClick }: HeaderProps) {
-	const [isTagsHovered, setIsTagsHovered] = useState(false);
+	const location = useLocation();
+
+	const getButtonStyle = (path: string) => {
+		const isActive = location.pathname === path || 
+			(path !== '/' && location.pathname.startsWith(path));
+		
+		return {
+			color: isActive ? theme.colors.accent.primary : theme.colors.text.secondary,
+			backgroundColor: isActive ? 'rgba(59, 130, 246, 0.1)' : 'transparent',
+			fontWeight: isActive ? 'bold' : 'normal',
+			'&:hover': {
+				backgroundColor: isActive ? 'rgba(59, 130, 246, 0.2)' : 'rgba(255, 255, 255, 0.1)',
+			}
+		};
+	};
 
 	return (
 		<AppBar position="sticky">
@@ -23,20 +36,29 @@ export default function Header({ onCreateClick }: HeaderProps) {
 					📈 NPM Trends
 				</Typography>
 
-				<Link
+				<Button
+					component={Link}
+					to="/"
+					sx={getButtonStyle('/')}
+				>
+					プリセット一覧
+				</Button>
+
+				<Button
+					component={Link}
+					to="/packages"
+					sx={getButtonStyle('/packages')}
+				>
+					パッケージ一覧
+				</Button>
+
+				<Button
+					component={Link}
 					to="/tags"
-					style={{
-						color: isTagsHovered
-							? theme.colors.accent.hover
-							: theme.colors.text.secondary,
-						textDecoration: 'none',
-						transition: theme.transition,
-					}}
-					onMouseEnter={() => setIsTagsHovered(true)}
-					onMouseLeave={() => setIsTagsHovered(false)}
+					sx={getButtonStyle('/tags')}
 				>
 					タグ一覧
-				</Link>
+				</Button>
 				<SignedIn>
 					<Button onClick={onCreateClick} variant="contained">
 						プリセット作成

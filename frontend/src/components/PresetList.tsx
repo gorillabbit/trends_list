@@ -36,7 +36,7 @@ export default function PresetList({ presets, onLike }: PresetListProps) {
 			>
 				人気のプリセット
 			</Typography>
-			<Grid container spacing={2}>
+			<Grid container spacing={1}>
 				{presets.map((preset) => (
 					<PresetCard
 						key={preset.id}

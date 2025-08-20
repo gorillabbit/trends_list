@@ -369,6 +369,81 @@ apiRoutes.post('/verify-turnstile', async (c) => {
   }
 })
 
+// GET /api/packages - Get all packages with pagination
+apiRoutes.get('/packages', async (c) => {
+  try {
+    const url = new URL(c.req.url)
+    const page = parseInt(url.searchParams.get('page') || '1')
+    const limit = parseInt(url.searchParams.get('limit') || '20')
+    const offset = (page - 1) * limit
+
+    const cacheKey = `packages:list:${page}:${limit}`
+    const cached = await c.env.KV.get(cacheKey)
+    if (cached) {
+      return c.json(JSON.parse(cached), 200, {
+        'Cache-Control': 'public, max-age=300'
+      })
+    }
+
+    const db = getDB(c)
+    
+    // Get packages with tags
+    const results = await db
+      .select({
+        id: packages.id,
+        name: packages.name,
+        description: packages.description,
+        weekly_downloads: packages.weeklyDownloads,
+        repository: packages.repository,
+        homepage: packages.homepage,
+        last_update: packages.lastUpdate,
+        created_at: packages.createdAt,
+      })
+      .from(packages)
+      .orderBy(desc(packages.weeklyDownloads))
+      .limit(limit)
+      .offset(offset)
+
+    // Get tags for each package
+    const packagesWithTags = await Promise.all(
+      results.map(async (pkg) => {
+        const pkgTags = await db
+          .select({
+            id: tags.id,
+            name: tags.name,
+            description: tags.description,
+            color: tags.color,
+            created_at: tags.createdAt,
+          })
+          .from(tags)
+          .innerJoin(packageTags, eq(tags.id, packageTags.tagId))
+          .where(eq(packageTags.packageId, pkg.id))
+          .catch(() => []) // Return empty array if tags query fails
+
+        return {
+          ...pkg,
+          tags: pkgTags
+        }
+      })
+    )
+
+    const response = {
+      packages: packagesWithTags,
+      page,
+      hasMore: results.length === limit
+    }
+
+    await c.env.KV.put(cacheKey, JSON.stringify(response), { expirationTtl: 300 })
+
+    return c.json(response, 200, {
+      'Cache-Control': 'public, max-age=300'
+    })
+  } catch (error) {
+    console.error('Failed to get packages:', error)
+    return c.json({ error: 'パッケージの取得に失敗しました' }, 500)
+  }
+})
+
 // GET /api/packages/by-tags - Get packages by tag IDs (must be before :packageName routes)
 apiRoutes.get('/packages/by-tags', async (c) => {
   try {

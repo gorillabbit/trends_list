@@ -1,15 +1,12 @@
 import { useState, useEffect } from 'react';
 import { Box, Container, Typography } from '@mui/material';
-import Header from './Header';
 import PresetList from './PresetList';
-import CreatePresetForm from './CreatePresetForm';
 import { Preset } from '../types';
 import { useAuth } from '@clerk/clerk-react';
 import { theme } from '../styles/theme';
 
 function Home() {
 	const [presets, setPresets] = useState<Preset[]>([]);
-	const [showCreateForm, setShowCreateForm] = useState(false);
 	const { isSignedIn, getToken } = useAuth();
 
 	useEffect(() => {
@@ -24,11 +21,6 @@ function Home() {
 		} catch (err) {
 			console.error('Failed to fetch presets:', err);
 		}
-	};
-
-	const handlePresetCreated = () => {
-		setShowCreateForm(false);
-		fetchPresets();
 	};
 
 	const handleLike = async (presetId: string) => {
@@ -59,32 +51,18 @@ function Home() {
 	};
 
 	return (
-		<>
-			<Header onCreateClick={() => setShowCreateForm(true)} />
+		<Container sx={{ py: 4 }}>
+			<Box sx={{ textAlign: 'center', mb: 6 }}>
+				<Typography variant="h2" fontWeight="bold">
+					NPM Trends Presets
+				</Typography>
+				<Typography variant="h6" color={theme.colors.text.secondary}>
+					お気に入りのNPMパッケージの組み合わせを保存・共有しよう
+				</Typography>
+			</Box>
 
-			<Container sx={{ py: 4 }}>
-				<Box sx={{ textAlign: 'center', mb: 6 }}>
-					<Typography variant="h2" fontWeight="bold">
-						NPM Trends Presets
-					</Typography>
-					<Typography
-						variant="h6"
-						color={theme.colors.text.secondary}
-					>
-						お気に入りのNPMパッケージの組み合わせを保存・共有しよう
-					</Typography>
-				</Box>
-
-				{isSignedIn && showCreateForm && (
-					<CreatePresetForm
-						onPresetCreated={handlePresetCreated}
-						onCancel={() => setShowCreateForm(false)}
-					/>
-				)}
-
-				<PresetList presets={presets} onLike={handleLike} />
-			</Container>
-		</>
+			<PresetList presets={presets} onLike={handleLike} />
+		</Container>
 	);
 }
 

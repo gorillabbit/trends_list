@@ -10,7 +10,6 @@ import {
 import PresetCard from './PresetCard';
 import TagManager from './TagManager';
 import { useAuth } from '@clerk/clerk-react';
-import { HomeLink } from './ui/HomeLink';
 import { Loading } from './ui/Loading';
 import ExternalLink from './ui/ExternalLink';
 import Tag from './ui/Tag';
@@ -150,14 +149,12 @@ function PackagePresets() {
 	}
 
 	if (error) {
-		return <HomeLink />;
+		return;
 	}
 
 	return (
 		<Container sx={{ py: 4 }}>
 			<Box sx={{ mb: 4 }}>
-				<HomeLink />
-
 				<Typography
 					variant="h3"
 					color={theme.colors.text.primary}

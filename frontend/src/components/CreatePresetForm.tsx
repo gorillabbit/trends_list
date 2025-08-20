@@ -79,19 +79,10 @@ export default function CreatePresetForm({
 	};
 
 	return (
-		<Card sx={{ mb: 4 }}>
-			<Box
-				sx={{
-					display: 'flex',
-					justifyContent: 'space-between',
-					alignItems: 'center',
-					mb: 3,
-				}}
-			>
-				<Typography variant="h5">
-					新しいプリセットを作成
-				</Typography>
-			</Box>
+		<Card>
+			<Typography variant="h5" sx={{ mb: 2 }}>
+				新しいプリセットを作成
+			</Typography>
 
 			<form onSubmit={handleSubmit}>
 				<Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
@@ -125,7 +116,7 @@ export default function CreatePresetForm({
 					</Box>
 
 					{packages.length > 0 && (
-						<Box>
+						<>
 							<Typography variant="body2" sx={{ mb: 1 }}>
 								選択されたパッケージ ({packages.length}/10)
 							</Typography>
@@ -146,7 +137,7 @@ export default function CreatePresetForm({
 									</Tag>
 								))}
 							</Box>
-						</Box>
+						</>
 					)}
 
 					<Box sx={{ display: 'flex', gap: 2, pt: 2 }}>

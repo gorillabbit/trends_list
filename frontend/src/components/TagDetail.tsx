@@ -3,7 +3,6 @@ import { useParams, Link } from 'react-router-dom';
 import { Box, Container, Typography, Button, Grid } from '@mui/material';
 import { Tag as TagType, Package } from '../types';
 import { Loading } from './ui/Loading';
-import { HomeLink } from './ui/HomeLink';
 import ExternalLink from './ui/ExternalLink';
 import Tag from './ui/Tag';
 import Card from './ui/Card';
@@ -90,242 +89,213 @@ function TagDetail() {
 	}
 
 	if (error || !tag) {
-		return <HomeLink />;
+		return;
 	}
 
 	const comparisonGroups = generateComparisonGroups(packages);
 
 	return (
-		<Box
-			bgcolor={theme.colors.background.primary}
-			sx={{ minHeight: '100vh' }}
-		>
-			<Container maxWidth="lg" sx={{ py: 4 }}>
-				<Box
-					display="flex"
-					flexDirection="column"
-					gap={0.5}
-					sx={{ mb: 4 }}
-				>
-					<HomeLink />
+		<Container sx={{ py: 4 }}>
+			<Box display="flex" flexDirection="column" gap={0.5} sx={{ mb: 4 }}>
+				<Typography variant="h3" fontWeight="bold">
+					<Tag color={tag.color}>{tag.name}</Tag>
+					のパッケージ
+				</Typography>
+				<Typography variant="body1" color={theme.colors.text.secondary}>
+					{tag.description}
+				</Typography>
 
-					<Typography
-						variant="h3"
-						fontWeight="bold"
-						color={theme.colors.text.primary}
-					>
-						<Tag color={tag.color}>{tag.name}</Tag>
-						のパッケージ
-					</Typography>
-					<Typography
-						variant="body1"
-						color={theme.colors.text.secondary}
-					>
-						{tag.description}
-					</Typography>
-
-					{packages.length > 0 && (
-						<Card sx={{ mb: 4 }}>
-							<Typography
-								variant="h5"
-								fontWeight="600"
-								color={theme.colors.text.primary}
-								sx={{ mb: 3 }}
-							>
-								NPM Trendsで比較
-							</Typography>
-							<Box
-								sx={{
-									display: 'flex',
-									flexDirection: 'column',
-									gap: 2,
-								}}
-							>
-								{comparisonGroups.map((group, index) => (
-									<Box
-										key={index}
-										sx={{
-											display: 'flex',
-											alignItems: 'center',
-											justifyContent: 'space-between',
-											p: 2,
-											backgroundColor:
-												theme.colors.background
-													.secondary,
-											borderRadius: theme.borderRadius.md,
-										}}
-									>
-										<Typography variant="body1">
-											グループ {index + 1}
-											{comparisonGroups.length > 1 &&
-												` (${group.length}パッケージ)`}
-										</Typography>
-										<Typography
-											variant="body2"
-											color={theme.colors.text.secondary}
-										>
-											{group
-												.map((pkg) => pkg.name)
-												.join(', ')}
-										</Typography>
-
-										<Button
-											variant="contained"
-											href={generateTrendUrl(
-												group.map((pkg) => pkg.name)
-											)}
-										>
-											比較する
-										</Button>
-									</Box>
-								))}
-								{packages.length > 10 && (
-									<Box sx={{ textAlign: 'center', pt: 2 }}>
-										<ExternalLink
-											href={generateTrendUrl(
-												packages
-													.slice(0, 10)
-													.map((pkg) => pkg.name)
-											)}
-										>
-											人気上位10パッケージを比較
-										</ExternalLink>
-									</Box>
-								)}
-							</Box>
-						</Card>
-					)}
-				</Box>
-
-				{packages.length === 0 ? (
-					<Box sx={{ textAlign: 'center' }}>
-						<Typography
-							variant="h5"
-							color={theme.colors.text.secondary}
-							sx={{ mb: 2 }}
-						>
-							このタグが付いたパッケージが見つかりませんでした。
+				{packages.length > 0 && (
+					<Card sx={{ mb: 4 }}>
+						<Typography variant="h5" sx={{ mb: 3 }}>
+							NPM Trendsで比較
 						</Typography>
-						<Link
-							to="/tags"
-							style={{
-								color: theme.colors.accent.primary,
-								textDecoration: 'underline',
+						<Box
+							sx={{
+								display: 'flex',
+								flexDirection: 'column',
+								gap: 2,
 							}}
 						>
-							他のタグを見る
-						</Link>
-					</Box>
-				) : (
-					<>
-						<Typography
-							variant="h4"
-							color={theme.colors.text.primary}
-							sx={{ mb: 3 }}
-						>
-							パッケージ一覧 ({packages.length}件)
-						</Typography>
-						<Grid container spacing={3}>
-							{packages.map((pkg) => (
-								<Card
-									variant="hover"
-									sx={{ height: '100%' }}
-									key={pkg.id}
+							{comparisonGroups.map((group, index) => (
+								<Box
+									key={index}
+									sx={{
+										display: 'flex',
+										alignItems: 'center',
+										justifyContent: 'space-between',
+										p: 2,
+										backgroundColor:
+											theme.colors.background.secondary,
+										borderRadius: theme.borderRadius.md,
+									}}
 								>
-									<Box
-										sx={{
-											display: 'flex',
-											justifyContent: 'space-between',
-											alignItems: 'start',
-										}}
-									>
-										<Link
-											to={`/packages/${pkg.name}`}
-											style={{
-												color: theme.colors.text
-													.primary,
-												textDecoration: 'none',
-												fontWeight: '600',
-												fontSize: '1.125rem',
-											}}
-										>
-											{pkg.name}
-										</Link>
-										<ExternalLink
-											href={`https://npmtrends.com/${encodeURIComponent(
-												pkg.name
-											)}`}
-										>
-											トレンド
-										</ExternalLink>
-									</Box>
-
+									<Typography variant="body1">
+										グループ {index + 1}
+										{comparisonGroups.length > 1 &&
+											` (${group.length}パッケージ)`}
+									</Typography>
 									<Typography
 										variant="body2"
 										color={theme.colors.text.secondary}
 									>
-										{pkg.description}
+										{group
+											.map((pkg) => pkg.name)
+											.join(', ')}
 									</Typography>
+									<Button
+										variant="contained"
+										href={generateTrendUrl(
+											group.map((pkg) => pkg.name)
+										)}
+									>
+										比較する
+									</Button>
+								</Box>
+							))}
+							{packages.length > 10 && (
+								<Box sx={{ textAlign: 'center', pt: 2 }}>
+									<ExternalLink
+										href={generateTrendUrl(
+											packages
+												.slice(0, 10)
+												.map((pkg) => pkg.name)
+										)}
+									>
+										人気上位10パッケージを比較
+									</ExternalLink>
+								</Box>
+							)}
+						</Box>
+					</Card>
+				)}
+			</Box>
 
-									{pkg.tags && pkg.tags.length > 0 && (
-										<Box
-											sx={{
-												display: 'flex',
-												flexWrap: 'wrap',
-												gap: 0.5,
-												mb: 1,
-											}}
-										>
-											{pkg.tags.slice(0, 3).map((tag) => (
-												<Link
-													key={tag.id}
-													to={`/tags/${tag.id}`}
-												>
-													<Tag color={tag.color}>
-														{tag.name}
-													</Tag>
-												</Link>
-											))}
-											{pkg.tags.length > 3 && (
-												<Typography
-													color={
-														theme.colors.text.muted
-													}
-												>
-													+{pkg.tags.length - 3}
-												</Typography>
-											)}
-										</Box>
-									)}
+			{packages.length === 0 ? (
+				<Box sx={{ textAlign: 'center' }}>
+					<Typography
+						variant="h5"
+						color={theme.colors.text.secondary}
+						sx={{ mb: 2 }}
+					>
+						このタグが付いたパッケージが見つかりませんでした。
+					</Typography>
+					<Link
+						to="/tags"
+						style={{
+							color: theme.colors.accent.primary,
+							textDecoration: 'underline',
+						}}
+					>
+						他のタグを見る
+					</Link>
+				</Box>
+			) : (
+				<>
+					<Typography
+						variant="h4"
+						color={theme.colors.text.primary}
+						sx={{ mb: 3 }}
+					>
+						パッケージ一覧 ({packages.length}件)
+					</Typography>
+					<Grid container spacing={1}>
+						{packages.map((pkg) => (
+							<Card
+								variant="hover"
+								sx={{ height: '100%' }}
+								key={pkg.id}
+							>
+								<Box
+									sx={{
+										display: 'flex',
+										justifyContent: 'space-between',
+										alignItems: 'start',
+									}}
+								>
+									<Link
+										to={`/packages/${pkg.name}`}
+										style={{
+											color: theme.colors.text.primary,
+											textDecoration: 'none',
+											fontWeight: '600',
+											fontSize: '1.125rem',
+										}}
+									>
+										{pkg.name}
+									</Link>
+									<ExternalLink
+										href={`https://npmtrends.com/${encodeURIComponent(
+											pkg.name
+										)}`}
+									>
+										トレンド
+									</ExternalLink>
+								</Box>
 
+								<Typography
+									variant="body2"
+									color={theme.colors.text.secondary}
+								>
+									{pkg.description}
+								</Typography>
+
+								{pkg.tags && pkg.tags.length > 0 && (
 									<Box
 										sx={{
 											display: 'flex',
-											justifyContent: 'space-between',
-											alignItems: 'center',
+											flexWrap: 'wrap',
+											gap: 0.5,
+											mb: 1,
 										}}
 									>
-										<Typography
-											variant="caption"
-											color={theme.colors.text.secondary}
-										>
-											週間DL:
-											{pkg.weekly_downloads?.toLocaleString() ||
-												'不明'}
-										</Typography>
-										{pkg.homepage && (
-											<ExternalLink href={pkg.homepage}>
-												HP
-											</ExternalLink>
+										{pkg.tags.slice(0, 3).map((tag) => (
+											<Link
+												key={tag.id}
+												to={`/tags/${tag.id}`}
+											>
+												<Tag color={tag.color}>
+													{tag.name}
+												</Tag>
+											</Link>
+										))}
+										{pkg.tags.length > 3 && (
+											<Typography
+												color={theme.colors.text.muted}
+											>
+												+{pkg.tags.length - 3}
+											</Typography>
 										)}
 									</Box>
-								</Card>
-							))}
-						</Grid>
-					</>
-				)}
-			</Container>
-		</Box>
+								)}
+
+								<Box
+									sx={{
+										display: 'flex',
+										justifyContent: 'space-between',
+										alignItems: 'center',
+									}}
+								>
+									<Typography
+										variant="caption"
+										color={theme.colors.text.secondary}
+									>
+										週間DL:
+										{pkg.weekly_downloads?.toLocaleString() ||
+											'不明'}
+									</Typography>
+									{pkg.homepage && (
+										<ExternalLink href={pkg.homepage}>
+											HP
+										</ExternalLink>
+									)}
+								</Box>
+							</Card>
+						))}
+					</Grid>
+				</>
+			)}
+		</Container>
 	);
 }
 
