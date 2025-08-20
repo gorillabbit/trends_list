@@ -8,6 +8,7 @@ NPMパッケージのトレンド比較プリセットを作成・共有・い�
 - **トレンド表示**: npmtrendsへの直接リンクで比較グラフを表示
 - **いいね機能**: 他のユーザーのプリセットにいいねを付ける
 - **認証システム**: Clerk (OAuth, Email/Passwordなど) でログイン
+- **人気パッケージ自動同期**: NPM Registry APIから人気パッケージを自動取得・DB登録
 - **スパム防止**: Cloudflare Turnstileによる保護
 - **レスポンシブUI**: モバイル・デスクトップ対応
 
@@ -77,6 +78,10 @@ npm run build
 npm run build:frontend
 
 # Worker TypeScript チェック
+npx tsc --noEmit
+
+# 人気パッケージ手動同期（テスト用）
+curl -X POST http://localhost:8787/api/admin/sync-packages
 npm run build:worker
 
 # リント

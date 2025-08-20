@@ -24,6 +24,10 @@ id = "ec8459f713824fbb9b288f7bf0721165"
 # TURNSTILE_SECRET_KEY
 # CLERK_SECRET_KEY
 
+# Cron triggers for scheduled tasks
+[triggers]
+crons = ["0 2 * * *"]  # 毎日午前2時に実行（UTC）
+
 [vars]
 TURNSTILE_SITE_KEY = "0x4AAAAAABqcBHFWD4wypzFb"
 CLERK_PUBLISHABLE_KEY = "pk_test_YWNjZXB0ZWQtc29sZS04OS5jbGVyay5hY2NvdW50cy5kZXYk"

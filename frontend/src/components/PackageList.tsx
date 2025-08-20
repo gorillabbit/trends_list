@@ -17,7 +17,7 @@ function PackageList() {
 
 	const fetchPackages = async () => {
 		const result = await execute(
-			() => apiClient.get<{ packages: Package[] }>('/packages'),
+			() => apiClient.get<{ packages: Package[] }>('/packages?limit=200'),
 			{
 				showAlert: false,
 				onError: (error) => setError(error)
@@ -78,7 +78,7 @@ function PackageList() {
 					<Grid container spacing={1}>
 						{packages.map((pkg) => (
 							<Link
-								to={`/packages/${pkg.name}`}
+								to={`/packages/${encodeURIComponent(pkg.name)}`}
 								style={{ textDecoration: 'none' }}
 								key={pkg.id}
 							>

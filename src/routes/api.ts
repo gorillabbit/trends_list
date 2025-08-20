@@ -417,7 +417,7 @@ apiRoutes.get('/packages', async (c) => {
   try {
     const url = new URL(c.req.url)
     const page = parseInt(url.searchParams.get('page') || '1')
-    const limit = parseInt(url.searchParams.get('limit') || '20')
+    const limit = parseInt(url.searchParams.get('limit') || '100')
     const offset = (page - 1) * limit
 
     const cacheKey = `packages:list:${page}:${limit}`
@@ -493,7 +493,7 @@ apiRoutes.get('/packages/by-tags', async (c) => {
     const url = new URL(c.req.url)
     const tagIdsParam = url.searchParams.get('tagIds')
     const excludeParam = url.searchParams.get('exclude')
-    const limit = parseInt(url.searchParams.get('limit') || '20')
+    const limit = parseInt(url.searchParams.get('limit') || '50')
 
     if (!tagIdsParam) {
       return c.json({ error: 'タグIDが必要です' }, 400)
@@ -575,7 +575,7 @@ apiRoutes.get('/packages/by-tags', async (c) => {
 // GET /api/packages/:packageName/presets - Get presets that use a specific package
 apiRoutes.get('/packages/:packageName/presets', async (c) => {
   try {
-    const packageName = c.req.param('packageName')
+    const packageName = decodeURIComponent(c.req.param('packageName'))
     const url = new URL(c.req.url)
     const page = parseInt(url.searchParams.get('page') || '1')
     const limit = 20
@@ -640,7 +640,7 @@ apiRoutes.get('/packages/:packageName/presets', async (c) => {
 // GET /api/packages/:packageName - Get package details
 apiRoutes.get('/packages/:packageName', async (c) => {
   try {
-    const packageName = c.req.param('packageName')
+    const packageName = decodeURIComponent(c.req.param('packageName'))
     
     if (!packageName) {
       return c.json({ error: 'パッケージ名が必要です' }, 400)
