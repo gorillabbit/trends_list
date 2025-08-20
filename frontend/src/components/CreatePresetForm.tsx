@@ -3,8 +3,10 @@ import { useAuth } from '@clerk/clerk-react';
 import { Box, Typography, Button, TextField } from '@mui/material';
 import Tag from './ui/Tag';
 import Card from './ui/Card';
+import PackageAutocomplete from './ui/PackageAutocomplete';
 import { createApiClient } from '../services/api';
 import { useApi } from '../hooks/useApi';
+import { usePackages } from '../hooks/usePackages';
 
 interface CreatePresetFormProps {
 	onPresetCreated: () => void;
@@ -21,6 +23,7 @@ export default function CreatePresetForm({
 	const { getToken } = useAuth();
 	const apiClient = createApiClient(getToken);
 	const { execute, loading } = useApi();
+	const { filterPackages } = usePackages();
 
 	const addPackage = () => {
 		const input = packageInput.trim();
@@ -51,10 +54,15 @@ export default function CreatePresetForm({
 		}
 
 		await execute(
-			() => apiClient.post('/presets', {
-				title: title.trim(),
-				packages: packages,
-			}, true),
+			() =>
+				apiClient.post(
+					'/presets',
+					{
+						title: title.trim(),
+						packages: packages,
+					},
+					true
+				),
 			{ onSuccess: onPresetCreated }
 		);
 	};
@@ -78,15 +86,16 @@ export default function CreatePresetForm({
 					/>
 
 					<Box sx={{ display: 'flex', gap: 1 }}>
-						<TextField
-							label="パッケージ名"
-							value={packageInput}
-							onChange={(e) => setPackageInput(e.target.value)}
-							placeholder="react, vue, angular (カンマ区切りで複数入力可能)"
-							sx={{ flexGrow: 1 }}
-							variant="outlined"
-							size="small"
-						/>
+						<Box sx={{ flexGrow: 1 }}>
+							<PackageAutocomplete
+								label="パッケージ名"
+								value={packageInput}
+								onChange={setPackageInput}
+								onAdd={addPackage}
+								placeholder="react, vue, angular (カンマ区切りで複数入力可能)"
+								suggestions={filterPackages(packageInput)}
+							/>
+						</Box>
 						<Button
 							onClick={addPackage}
 							disabled={!packageInput.trim()}

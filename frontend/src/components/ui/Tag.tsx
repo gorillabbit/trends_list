@@ -22,7 +22,7 @@ export default function Tag({
 			label={children}
 			variant="filled"
 			size="small"
-			sx={{ bgcolor: color }}
+			sx={{ bgcolor: color, ...sx }}
 			deleteIcon={variant === 'removable' ? <Close /> : undefined}
 			onDelete={variant === 'removable' ? onRemove : undefined}
 			{...props}
