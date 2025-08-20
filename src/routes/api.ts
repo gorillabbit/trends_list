@@ -44,6 +44,25 @@ function slugify(text: string): string {
     .replace(/^-+|-+$/g, '')
 }
 
+// 包括的なプリセット関連キャッシュクリア関数
+async function clearAllPresetCaches(kv: KVNamespace, userId?: string): Promise<void> {
+  const promises: Promise<void>[] = [];
+  
+  // プリセット一覧キャッシュ（全ページ・全ソート）
+  for (let page = 1; page <= 10; page++) {
+    promises.push(kv.delete(`presets:list:likes:${page}`));
+    promises.push(kv.delete(`presets:list:new:${page}`));
+    
+    // ユーザー固有のキャッシュも削除
+    if (userId) {
+      promises.push(kv.delete(`presets:list:likes:${page}:user:${userId}`));
+      promises.push(kv.delete(`presets:list:new:${page}:user:${userId}`));
+    }
+  }
+  
+  await Promise.all(promises);
+}
+
 // Clerkの認証情報を必須とするためのヘルパー
 function requireAuth(c: Context<{ Bindings: Bindings, Variables: Variables }>) {
   const auth = getAuth(c);
@@ -121,7 +140,7 @@ apiRoutes.get('/me', (c) => {
 });
 
 
-// GET /api/presets - Get presets list (public, no auth required)
+// GET /api/presets - Get presets list (public, but includes user like status if authenticated)
 apiRoutes.get('/presets', async (c) => {
   try {
     const url = new URL(c.req.url)
@@ -130,7 +149,15 @@ apiRoutes.get('/presets', async (c) => {
     const limit = 20
     const offset = (page - 1) * limit
 
-    const cacheKey = `presets:list:${sort}:${page}`
+    // 認証情報を取得（任意）
+    const auth = getAuth(c);
+    const userId = auth?.userId;
+
+    // 認証されたユーザーの場合はキャッシュキーにユーザーIDを含める
+    const cacheKey = userId 
+      ? `presets:list:${sort}:${page}:user:${userId}`
+      : `presets:list:${sort}:${page}`;
+
     const cached = await c.env.KV.get(cacheKey)
     if (cached) {
       return c.json(JSON.parse(cached), 200, {
@@ -140,7 +167,7 @@ apiRoutes.get('/presets', async (c) => {
 
     const db = getDB(c)
     
-    let results: string | any[]
+    let results: any[]
     if (sort === 'likes') {
       results = await db
         .select({
@@ -169,8 +196,25 @@ apiRoutes.get('/presets', async (c) => {
         .offset(offset)
     }
 
+    // 認証されたユーザーの場合、各プリセットのいいね状態を取得
+    let presetsWithLikeStatus = results;
+    if (userId && results.length > 0) {
+      const presetIds = results.map(preset => preset.id);
+      const userLikes = await db
+        .select({ presetId: likes.presetId })
+        .from(likes)
+        .where(and(eq(likes.userId, userId), inArray(likes.presetId, presetIds)));
+      
+      const likedPresetIds = new Set(userLikes.map(like => like.presetId));
+      
+      presetsWithLikeStatus = results.map(preset => ({
+        ...preset,
+        liked: likedPresetIds.has(preset.id)
+      }));
+    }
+
     const response = {
-      presets: results,
+      presets: presetsWithLikeStatus,
       page,
       hasMore: results.length === limit
     }
@@ -232,10 +276,8 @@ apiRoutes.post('/presets', async (c) => {
       ownerId: auth.userId
     })
 
-    await Promise.all([
-      c.env.KV.delete('presets:list:likes:1'),
-      c.env.KV.delete('presets:list:new:1')
-    ])
+    // 包括的なキャッシュクリア（ユーザー固有のキャッシュも含む）
+    await clearAllPresetCaches(c.env.KV, auth.userId)
 
     return c.json({
       id: slug,
@@ -304,8 +346,9 @@ apiRoutes.post('/presets/:slug/like', async (c) => {
         .where(eq(presets.id, slug))
     }
 
+    // 包括的なキャッシュクリア（ユーザー固有のキャッシュも含む）
     await Promise.all([
-      c.env.KV.delete('presets:list:likes:1'),
+      clearAllPresetCaches(c.env.KV, auth.userId),
       c.env.KV.delete(`preset:${slug}`),
     ])
 

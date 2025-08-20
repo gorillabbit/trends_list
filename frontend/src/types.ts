@@ -4,6 +4,7 @@ export interface Preset {
   packages: string[]
   owner_id: string
   likes_count: number
+  liked?: boolean
   created_at: string
 }
 

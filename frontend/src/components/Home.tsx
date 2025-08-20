@@ -34,10 +34,40 @@ function Home() {
 			return;
 		}
 
-		await execute(
-			() => apiClient.post(`/presets/${presetId}/like`, undefined, true),
-			{ onSuccess: fetchPresets }
-		);
+		// 楽観的更新：APIレスポンス前にUIを更新
+		setPresets(prev => prev.map(preset => {
+			if (preset.id === presetId) {
+				const isCurrentlyLiked = preset.liked || false;
+				return {
+					...preset,
+					liked: !isCurrentlyLiked,
+					likes_count: isCurrentlyLiked 
+						? (preset.likes_count || 0) - 1 
+						: (preset.likes_count || 0) + 1
+				};
+			}
+			return preset;
+		}));
+
+		try {
+			const result = await execute(
+				() => apiClient.post<{ liked: boolean; likes_count: number }>(`/presets/${presetId}/like`, undefined, true),
+				{ showAlert: false }
+			);
+			
+			// API結果で最終的に修正
+			if (result) {
+				setPresets(prev => prev.map(preset => 
+					preset.id === presetId 
+						? { ...preset, likes_count: result.likes_count, liked: result.liked }
+						: preset
+				));
+			}
+		} catch (error) {
+			// エラー時は全体を再取得して元に戻す
+			console.error('いいね処理でエラーが発生しました:', error);
+			fetchPresets();
+		}
 	};
 
 	return (

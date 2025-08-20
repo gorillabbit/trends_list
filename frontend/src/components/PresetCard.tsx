@@ -61,10 +61,17 @@ export default function PresetCard({ preset, onLike }: PresetCardProps) {
 			</Box>
 
 			<Button
-				variant="outlined"
+				variant={preset.liked ? "contained" : "outlined"}
 				size="small"
 				onClick={handleLike}
 				startIcon={<Favorite />}
+				sx={{
+					color: preset.liked ? 'white' : theme.colors.accent.primary,
+					backgroundColor: preset.liked ? theme.colors.accent.primary : 'transparent',
+					'&:hover': {
+						backgroundColor: preset.liked ? theme.colors.accent.hover : theme.colors.accent.primary + '10',
+					},
+				}}
 			>
 				{preset.likes_count}
 			</Button>
