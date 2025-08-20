@@ -4,24 +4,29 @@ import PresetList from './PresetList';
 import { Preset } from '../types';
 import { useAuth } from '@clerk/clerk-react';
 import { theme } from '../styles/theme';
+import { createApiClient } from '../services/api';
+import { useApi } from '../hooks/useApi';
 
 function Home() {
 	const [presets, setPresets] = useState<Preset[]>([]);
 	const { isSignedIn, getToken } = useAuth();
+	const apiClient = createApiClient(getToken);
+	const { execute } = useApi();
+
+	const fetchPresets = async () => {
+		const result = await execute(
+			() => apiClient.get<{ presets: Preset[] }>('/presets?sort=likes'),
+			{ showAlert: false }
+		);
+		if (result) {
+			setPresets(result.presets || []);
+		}
+	};
 
 	useEffect(() => {
 		fetchPresets();
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
-
-	const fetchPresets = async () => {
-		try {
-			const res = await fetch('/api/presets?sort=likes');
-			const data = await res.json();
-			setPresets(data.presets || []);
-		} catch (err) {
-			console.error('Failed to fetch presets:', err);
-		}
-	};
 
 	const handleLike = async (presetId: string) => {
 		if (!isSignedIn) {
@@ -29,25 +34,10 @@ function Home() {
 			return;
 		}
 
-		try {
-			const token = await getToken();
-			const res = await fetch(`/api/presets/${presetId}/like`, {
-				method: 'POST',
-				headers: {
-					Authorization: `Bearer ${token}`,
-				},
-			});
-
-			if (res.ok) {
-				fetchPresets();
-			} else {
-				const data = await res.json();
-				alert(data.error || 'いいねに失敗しました');
-			}
-		} catch (err) {
-			console.error('Failed to like preset:', err);
-			alert('いいねに失敗しました');
-		}
+		await execute(
+			() => apiClient.post(`/presets/${presetId}/like`, undefined, true),
+			{ onSuccess: fetchPresets }
+		);
 	};
 
 	return (

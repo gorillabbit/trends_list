@@ -3,6 +3,8 @@ import { useAuth } from '@clerk/clerk-react';
 import { Box, Typography, Button, TextField } from '@mui/material';
 import Tag from './ui/Tag';
 import Card from './ui/Card';
+import { createApiClient } from '../services/api';
+import { useApi } from '../hooks/useApi';
 
 interface CreatePresetFormProps {
 	onPresetCreated: () => void;
@@ -16,8 +18,9 @@ export default function CreatePresetForm({
 	const [title, setTitle] = useState('');
 	const [packageInput, setPackageInput] = useState('');
 	const [packages, setPackages] = useState<string[]>([]);
-	const [loading, setLoading] = useState(false);
 	const { getToken } = useAuth();
+	const apiClient = createApiClient(getToken);
+	const { execute, loading } = useApi();
 
 	const addPackage = () => {
 		const input = packageInput.trim();
@@ -47,35 +50,13 @@ export default function CreatePresetForm({
 			return;
 		}
 
-		setLoading(true);
-
-		try {
-			const token = await getToken();
-			const res = await fetch('/api/presets', {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json',
-					Authorization: `Bearer ${token}`,
-				},
-				body: JSON.stringify({
-					title: title.trim(),
-					packages: packages,
-				}),
-			});
-
-			const data = await res.json();
-
-			if (res.ok) {
-				onPresetCreated();
-			} else {
-				alert(data.error || 'プリセットの作成に失敗しました');
-			}
-		} catch (err) {
-			console.error('Failed to create preset:', err);
-			alert('プリセットの作成に失敗しました');
-		} finally {
-			setLoading(false);
-		}
+		await execute(
+			() => apiClient.post('/presets', {
+				title: title.trim(),
+				packages: packages,
+			}, true),
+			{ onSuccess: onPresetCreated }
+		);
 	};
 
 	return (

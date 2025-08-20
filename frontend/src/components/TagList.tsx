@@ -6,33 +6,32 @@ import { Loading } from './ui/Loading';
 import Tag from './ui/Tag';
 import Card from './ui/Card';
 import { theme } from '../styles/theme';
+import { createApiClient } from '../services/api';
+import { useApi } from '../hooks/useApi';
 
 function TagList() {
 	const [tags, setTags] = useState<TagType[]>([]);
-	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string>('');
+	const apiClient = createApiClient();
+	const { execute, loading } = useApi();
+
+	const fetchTags = async () => {
+		const result = await execute(
+			() => apiClient.get<{ tags: TagType[] }>('/tags'),
+			{
+				showAlert: false,
+				onError: (error) => setError(error)
+			}
+		);
+		if (result) {
+			setTags(result.tags || []);
+		}
+	};
 
 	useEffect(() => {
 		fetchTags();
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
-
-	const fetchTags = async () => {
-		try {
-			setLoading(true);
-			const res = await fetch('/api/tags');
-			if (res.ok) {
-				const data = await res.json();
-				setTags(data.tags || []);
-			} else {
-				setError('タグの取得に失敗しました');
-			}
-		} catch (err) {
-			console.error('Failed to fetch tags:', err);
-			setError('タグの取得に失敗しました');
-		} finally {
-			setLoading(false);
-		}
-	};
 
 	if (loading) {
 		return <Loading />;

@@ -6,33 +6,32 @@ import { Loading } from './ui/Loading';
 import Card from './ui/Card';
 import Tag from './ui/Tag';
 import { theme } from '../styles/theme';
+import { createApiClient } from '../services/api';
+import { useApi } from '../hooks/useApi';
 
 function PackageList() {
 	const [packages, setPackages] = useState<Package[]>([]);
-	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string>('');
+	const apiClient = createApiClient();
+	const { execute, loading } = useApi();
+
+	const fetchPackages = async () => {
+		const result = await execute(
+			() => apiClient.get<{ packages: Package[] }>('/packages'),
+			{
+				showAlert: false,
+				onError: (error) => setError(error)
+			}
+		);
+		if (result) {
+			setPackages(result.packages || []);
+		}
+	};
 
 	useEffect(() => {
 		fetchPackages();
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
-
-	const fetchPackages = async () => {
-		try {
-			setLoading(true);
-			const res = await fetch('/api/packages');
-			if (res.ok) {
-				const data = await res.json();
-				setPackages(data.packages || []);
-			} else {
-				setError('パッケージの取得に失敗しました');
-			}
-		} catch (err) {
-			console.error('Failed to fetch packages:', err);
-			setError('パッケージの取得に失敗しました');
-		} finally {
-			setLoading(false);
-		}
-	};
 
 	if (loading) {
 		return <Loading />;

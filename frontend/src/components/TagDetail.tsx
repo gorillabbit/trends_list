@@ -7,13 +7,17 @@ import ExternalLink from './ui/ExternalLink';
 import Tag from './ui/Tag';
 import Card from './ui/Card';
 import { theme } from '../styles/theme';
+import { createApiClient } from '../services/api';
+import { useApi } from '../hooks/useApi';
 
 function TagDetail() {
 	const { tagId } = useParams<{ tagId: string }>();
 	const [tag, setTag] = useState<TagType | null>(null);
 	const [packages, setPackages] = useState<Package[]>([]);
-	const [loading, setLoading] = useState(true);
+	const [initialLoading, setInitialLoading] = useState(true);
 	const [error, setError] = useState<string>('');
+	const apiClient = createApiClient();
+	const { execute } = useApi();
 
 	useEffect(() => {
 		if (tagId) {
@@ -23,40 +27,31 @@ function TagDetail() {
 	}, [tagId]);
 
 	const fetchTagDetail = async () => {
-		try {
-			const res = await fetch(`/api/tags/${encodeURIComponent(tagId!)}`);
-			if (res.ok) {
-				const data: TagType = await res.json();
-				setTag(data);
-			} else {
-				setError('タグが見つかりません');
+		const result = await execute(
+			() => apiClient.get<TagType>(`/tags/${encodeURIComponent(tagId!)}`),
+			{
+				showAlert: false,
+				onError: () => setError('タグが見つかりません')
 			}
-		} catch (err) {
-			console.error('Failed to fetch tag detail:', err);
-			setError('タグの取得に失敗しました');
+		);
+		if (result) {
+			setTag(result);
 		}
 	};
 
 	const fetchTagPackages = async () => {
-		try {
-			setLoading(true);
-			const res = await fetch(
-				`/api/packages/by-tags?tagIds=${encodeURIComponent(
-					tagId!
-				)}&limit=50`
-			);
-			if (res.ok) {
-				const data = await res.json();
-				setPackages(data.packages || []);
-			} else {
-				setError('パッケージの取得に失敗しました');
+		setInitialLoading(true);
+		const result = await execute(
+			() => apiClient.get<{ packages: Package[] }>(`/packages/by-tags?tagIds=${encodeURIComponent(tagId!)}&limit=50`),
+			{
+				showAlert: false,
+				onError: (error) => setError(error)
 			}
-		} catch (err) {
-			console.error('Failed to fetch tag packages:', err);
-			setError('パッケージの取得に失敗しました');
-		} finally {
-			setLoading(false);
+		);
+		if (result) {
+			setPackages(result.packages || []);
 		}
+		setInitialLoading(false);
 	};
 
 	const generateTrendUrl = (packageNames: string[]) => {
@@ -84,7 +79,7 @@ function TagDetail() {
 		return groups;
 	};
 
-	if (loading) {
+	if (initialLoading) {
 		return <Loading />;
 	}
 

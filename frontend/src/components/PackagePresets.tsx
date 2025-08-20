@@ -15,16 +15,20 @@ import ExternalLink from './ui/ExternalLink';
 import Tag from './ui/Tag';
 import Card from './ui/Card';
 import { theme } from '../styles/theme';
+import { createApiClient } from '../services/api';
+import { useApi } from '../hooks/useApi';
 
 function PackagePresets() {
 	const { packageName } = useParams<{ packageName: string }>();
 	const [presets, setPresets] = useState<Preset[]>([]);
 	const [packageInfo, setPackageInfo] = useState<Package | null>(null);
 	const [relatedPackages, setRelatedPackages] = useState<Package[]>([]);
-	const [loading, setLoading] = useState(true);
+	const [initialLoading, setInitialLoading] = useState(true);
 	const [error, setError] = useState<string>('');
 	const [showTagManager, setShowTagManager] = useState(false);
 	const { isSignedIn, getToken } = useAuth();
+	const apiClient = createApiClient(getToken);
+	const { execute } = useApi();
 
 	useEffect(() => {
 		if (packageName) {
@@ -42,56 +46,40 @@ function PackagePresets() {
 	}, [packageInfo]);
 
 	const fetchPackagePresets = async () => {
-		try {
-			setLoading(true);
-			const res = await fetch(
-				`/api/packages/${encodeURIComponent(packageName!)}/presets`
-			);
-			const data: PackagePresetsResponse = await res.json();
-
-			if (res.ok) {
-				setPresets(data.presets || []);
-			} else {
-				setError(data.error || 'プリセットの取得に失敗しました');
+		setInitialLoading(true);
+		const result = await execute(
+			() => apiClient.get<PackagePresetsResponse>(`/packages/${encodeURIComponent(packageName!)}/presets`),
+			{
+				showAlert: false,
+				onError: (error) => setError(error)
 			}
-		} catch (err) {
-			console.error('Failed to fetch package presets:', err);
-			setError('プリセットの取得に失敗しました');
-		} finally {
-			setLoading(false);
+		);
+		if (result) {
+			setPresets(result.presets || []);
 		}
+		setInitialLoading(false);
 	};
 
 	const fetchPackageInfo = async () => {
-		try {
-			const res = await fetch(
-				`/api/packages/${encodeURIComponent(packageName!)}`
-			);
-			if (res.ok) {
-				const data: Package = await res.json();
-				setPackageInfo(data);
-			}
-		} catch (err) {
-			console.error('Failed to fetch package info:', err);
+		const result = await execute(
+			() => apiClient.get<Package>(`/packages/${encodeURIComponent(packageName!)}`),
+			{ showAlert: false }
+		);
+		if (result) {
+			setPackageInfo(result);
 		}
 	};
 
 	const fetchRelatedPackages = async () => {
 		if (!packageInfo?.tags?.length) return;
 
-		try {
-			const tagIds = packageInfo.tags.map((tag) => tag.id);
-			const res = await fetch(
-				`/api/packages/by-tags?tagIds=${tagIds.join(
-					','
-				)}&exclude=${encodeURIComponent(packageName!)}`
-			);
-			if (res.ok) {
-				const data = await res.json();
-				setRelatedPackages(data.packages || []);
-			}
-		} catch (err) {
-			console.error('Failed to fetch related packages:', err);
+		const tagIds = packageInfo.tags.map((tag) => tag.id);
+		const result = await execute(
+			() => apiClient.get<{ packages: Package[] }>(`/packages/by-tags?tagIds=${tagIds.join(',')}&exclude=${encodeURIComponent(packageName!)}`),
+			{ showAlert: false }
+		);
+		if (result) {
+			setRelatedPackages(result.packages || []);
 		}
 	};
 
@@ -123,28 +111,13 @@ function PackagePresets() {
 			return;
 		}
 
-		try {
-			const token = await getToken();
-			const res = await fetch(`/api/presets/${presetId}/like`, {
-				method: 'POST',
-				headers: {
-					Authorization: `Bearer ${token}`,
-				},
-			});
-
-			if (res.ok) {
-				fetchPackagePresets();
-			} else {
-				const data = await res.json();
-				alert(data.error || 'いいねに失敗しました');
-			}
-		} catch (err) {
-			console.error('Failed to like preset:', err);
-			alert('いいねに失敗しました');
-		}
+		await execute(
+			() => apiClient.post(`/presets/${presetId}/like`, undefined, true),
+			{ onSuccess: fetchPackagePresets }
+		);
 	};
 
-	if (loading) {
+	if (initialLoading) {
 		return <Loading />;
 	}
 

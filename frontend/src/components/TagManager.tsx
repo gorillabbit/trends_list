@@ -15,6 +15,8 @@ import {
 } from '@mui/material';
 import { Tag } from '../types';
 import { theme } from '../styles/theme';
+import { createApiClient } from '../services/api';
+import { useApi } from '../hooks/useApi';
 
 interface TagManagerProps {
 	packageName: string;
@@ -34,57 +36,45 @@ function TagManager({
 	const [newTagName, setNewTagName] = useState('');
 	const [newTagDescription, setNewTagDescription] = useState('');
 	const [newTagColor, setNewTagColor] = useState('#3B82F6');
-	const [loading, setLoading] = useState(false);
+	const apiClient = createApiClient();
+	const { execute, loading } = useApi();
 
 	useEffect(() => {
 		fetchAvailableTags();
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
 	const fetchAvailableTags = async () => {
-		try {
-			const res = await fetch('/api/tags');
-			if (res.ok) {
-				const data = await res.json();
-				setAvailableTags(data.tags || []);
-			}
-		} catch (err) {
-			console.error('Failed to fetch tags:', err);
+		const result = await execute(
+			() => apiClient.get<{ tags: Tag[] }>('/tags'),
+			{ showAlert: false }
+		);
+		if (result) {
+			setAvailableTags(result.tags || []);
 		}
 	};
 
 	const createNewTag = async () => {
 		if (!newTagName.trim()) return;
 
-		try {
-			setLoading(true);
-			const res = await fetch('/api/tags', {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json',
-				},
-				body: JSON.stringify({
-					name: newTagName.trim(),
-					description: newTagDescription.trim() || undefined,
-					color: newTagColor,
-				}),
-			});
-
-			if (res.ok) {
-				const newTag: Tag = await res.json();
-				setAvailableTags([...availableTags, newTag]);
-				setSelectedTags([...selectedTags, newTag]);
-				setNewTagName('');
-				setNewTagDescription('');
-				setNewTagColor('#3B82F6');
-			} else {
-				const data = await res.json();
-				alert(data.error || 'タグの作成に失敗しました');
+		const result = await execute(
+			() => apiClient.post<Tag>('/tags', {
+				name: newTagName.trim(),
+				description: newTagDescription.trim() || undefined,
+				color: newTagColor,
+			}),
+			{
+				onSuccess: () => {
+					setNewTagName('');
+					setNewTagDescription('');
+					setNewTagColor('#3B82F6');
+				}
 			}
-		} catch (err) {
-			console.error('Failed to create tag:', err);
-			alert('タグの作成に失敗しました');
-		} finally {
-			setLoading(false);
+		);
+
+		if (result) {
+			setAvailableTags([...availableTags, result]);
+			setSelectedTags([...selectedTags, result]);
 		}
 	};
 
@@ -98,34 +88,17 @@ function TagManager({
 	};
 
 	const savePackageTags = async () => {
-		try {
-			setLoading(true);
-			const res = await fetch(
-				`/api/packages/${encodeURIComponent(packageName)}/tags`,
-				{
-					method: 'PUT',
-					headers: {
-						'Content-Type': 'application/json',
-					},
-					body: JSON.stringify({
-						tagIds: selectedTags.map((tag) => tag.id),
-					}),
+		await execute(
+			() => apiClient.put(`/packages/${encodeURIComponent(packageName)}/tags`, {
+				tagIds: selectedTags.map((tag) => tag.id),
+			}),
+			{
+				onSuccess: () => {
+					onTagsUpdated(selectedTags);
+					onClose();
 				}
-			);
-
-			if (res.ok) {
-				onTagsUpdated(selectedTags);
-				onClose();
-			} else {
-				const data = await res.json();
-				alert(data.error || 'タグの保存に失敗しました');
 			}
-		} catch (err) {
-			console.error('Failed to save package tags:', err);
-			alert('タグの保存に失敗しました');
-		} finally {
-			setLoading(false);
-		}
+		);
 	};
 
 	const predefinedColors = [
