@@ -122,7 +122,7 @@ function deployToCloudflare() {
 
 	try {
 		// ビルドとデプロイを実行
-		execSync('npm run build && wrangler deploy', {
+		execSync('wrangler deploy', {
 			stdio: 'inherit',
 		});
 		console.log('✅ デプロイが完了しました');

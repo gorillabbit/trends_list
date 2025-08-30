@@ -1,9 +1,14 @@
 import { syncPopularPackages } from './sync-popular-packages';
 import { drizzle } from 'drizzle-orm/d1';
+import { D1Database, ScheduledEvent } from '@cloudflare/workers-types';
+
+type Bindings = {
+  DB: D1Database;
+};
 
 // Cloudflare Workers環境での実行
 export default {
-  async scheduled(event: ScheduledEvent, env: any, ctx: ExecutionContext): Promise<void> {
+  async scheduled(_event: ScheduledEvent, env: Bindings): Promise<void> {
     console.log('定期実行: 人気パッケージ同期スクリプトを開始');
     
     try {
@@ -22,7 +27,7 @@ export default {
   },
 
   // 手動実行用のHTTPエンドポイント
-  async fetch(request: Request, env: any, ctx: ExecutionContext): Promise<Response> {
+  async fetch(request: Request, env: Bindings): Promise<Response> {
     const url = new URL(request.url);
     
     if (url.pathname === '/sync-packages' && request.method === 'POST') {

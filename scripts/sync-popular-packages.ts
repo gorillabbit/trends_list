@@ -161,7 +161,7 @@ async function fetchPopularPackages(): Promise<PackageInfo[]> {
         );
         
         if (searchResponse.ok) {
-          const searchData = await searchResponse.json();
+          const searchData = await searchResponse.json() as { objects?: { package: { name: string } }[] };
           const packageNames = searchData.objects?.map((obj: { package: { name: string } }) => obj.package.name) || [];
           
           // セットに追加（重複除去）
@@ -203,7 +203,11 @@ async function fetchPopularPackages(): Promise<PackageInfo[]> {
           continue;
         }
         
-        const packageData = await registryResponse.json();
+        const packageData = await registryResponse.json() as {
+          description?: string;
+          repository?: { url?: string };
+          homepage?: string;
+        };
         
         // 週間ダウンロード数を取得
         let weeklyDownloads = 0;
@@ -212,7 +216,7 @@ async function fetchPopularPackages(): Promise<PackageInfo[]> {
             `https://api.npmjs.org/downloads/point/last-week/${packageName}`
           );
           if (downloadsResponse.ok) {
-            const downloadsData = await downloadsResponse.json();
+            const downloadsData = await downloadsResponse.json() as { downloads?: number };
             weeklyDownloads = downloadsData.downloads || 0;
           }
         } catch (error) {
