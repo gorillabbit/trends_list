@@ -189,28 +189,22 @@ function main() {
 
 	console.log('🎯 実行ステップ:');
 	console.log('1. wrangler.toml の公開変数を更新');
-	console.log('2. Cloudflare secrets を同期');
-	console.log('3. データベースを初期化');
-	console.log('4. アプリケーションをデプロイ');
-	console.log('5. デプロイメントをテスト');
+	console.log('2. データベースを初期化');
+	console.log('3. アプリケーションをデプロイ');
+	console.log('4. デプロイメントをテスト');
 	console.log('');
 
 	try {
 		// 1. wrangler.toml更新
 		updateWranglerToml(envVars);
 
-		// 2. secrets同期
-		execSync(`node scripts/sync-secrets.js ${environment}`, {
-			stdio: 'inherit',
-		});
-
-		// 3. データベース初期化
+		// 2. データベース初期化
 		initializeDatabase();
 
-		// 4. デプロイ
+		// 3. デプロイ
 		deployToCloudflare();
 
-		// 5. テスト
+		// 4. テスト
 		showDeploymentInfo();
 
 		console.log('');

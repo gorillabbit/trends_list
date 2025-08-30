@@ -35,7 +35,7 @@ export function loadEnvFile(filePath) {
 	return envVars;
 }
 
-function main() {
+async function main() {
 	const env = process.argv[2] || 'local';
 	const envFileName = env === 'prod' ? '.env.prod' : '.env.local';
 	const envPath = path.resolve(process.cwd(), envFileName);
@@ -51,12 +51,31 @@ function main() {
 		return;
 	}
 
+	// 既存のシークレット一覧を取得
+	console.log('🔍 Checking existing secrets...');
+	let existingSecrets = [];
+	try {
+		const result = execSync(`npx wrangler secret list ${env === 'prod' ? '' : '--env development'}`, {
+			encoding: 'utf8',
+		});
+		existingSecrets = JSON.parse(result).map(secret => secret.name);
+		console.log(`📋 Found ${existingSecrets.length} existing secrets: ${existingSecrets.join(', ')}`);
+	} catch (error) {
+		console.warn('⚠️ Could not retrieve existing secrets list, continuing anyway...');
+	}
+
 	console.log(
-		'🔄 Synchronizing all found variables to Cloudflare Secrets...'
+		'🔄 Synchronizing new variables to Cloudflare Secrets...'
 	);
 
 	for (const key in envVars) {
 		const value = envVars[key];
+		
+		if (existingSecrets.includes(key)) {
+			console.log(`  ⏭️ Skipping ${key} (already exists)`);
+			continue;
+		}
+
 		console.log(`  🔐 Syncing secret: ${key}`);
 		try {
 			const command = `npx wrangler secret put ${key} ${
@@ -73,7 +92,7 @@ function main() {
 		}
 	}
 
-	console.log('\n🎉 All variables from .env file have been processed.');
+	console.log('\n🎉 All new variables from .env file have been processed.');
 }
 
 main();
