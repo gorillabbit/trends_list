@@ -142,7 +142,7 @@ function showDeploymentInfo() {
 
 		if (nameMatch) {
 			const appName = nameMatch[1];
-			const deployedUrl = `https://${appName}.workers.dev`;
+			const deployedUrl = `https://${appName}.modsyoukaizenryoku.workers.dev`;
 
 			console.log(`📋 デプロイ先URL: ${deployedUrl}`);
 			console.log('📋 次のエンドポイントをテストしてください:');
